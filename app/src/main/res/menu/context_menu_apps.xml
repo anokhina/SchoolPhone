@@ -1,0 +1,17 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="ru.org.sevn.simplelauncher.MainActivity" >
+
+    <item
+        android:id="@+id/action_allow"
+        android:orderInCategory="100"
+        android:title="Allow"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_forbid"
+        android:orderInCategory="200"
+        android:title="Forbid"
+        app:showAsAction="never"/>
+
+</menu>
