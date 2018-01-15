@@ -4,19 +4,29 @@
     tools:context="ru.org.sevn.simplelauncher.MainActivity" >
 
     <item
-        android:id="@+id/action_settings"
+        android:id="@+id/action_export"
         android:orderInCategory="100"
+        android:title="Export"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_settings"
+        android:orderInCategory="200"
         android:title="@string/action_settings"
         app:showAsAction="never"/>
     <item
         android:id="@+id/set_default_launcher"
-        android:orderInCategory="200"
+        android:orderInCategory="300"
         android:title="@string/set_default_launcher"
         app:showAsAction="never"/>
     <item
         android:id="@+id/action_renew"
-        android:orderInCategory="200"
+        android:orderInCategory="400"
         android:title="Refresh"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_clear"
+        android:orderInCategory="500"
+        android:title="X"
         app:showAsAction="never"/>
 
 </menu>

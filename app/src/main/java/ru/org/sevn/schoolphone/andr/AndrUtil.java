@@ -75,6 +75,18 @@ public class AndrUtil {
         }
     }
 
+    public interface CanAdd<T> {
+        boolean canAdd(T o);
+    }
+
+    public static void copy(Collection dest, Collection src, CanAdd canAdd) {
+        for(Object o : src) {
+            if (canAdd.canAdd(o)) {
+                dest.add(o);
+            }
+        }
+    }
+
     public static Resources getAppResources(Context ctx, String packageName) {
         try {
             return ctx.getPackageManager().getResourcesForApplication(packageName);

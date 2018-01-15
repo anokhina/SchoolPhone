@@ -27,6 +27,7 @@ import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -41,10 +42,13 @@ import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 
 import ru.org.sevn.schoolphone.andr.AndrUtilGUI;
 import ru.org.sevn.schoolphone.andr.DialogUtil;
+import ru.org.sevn.schoolphone.andr.IOUtil;
 
 public class MainActivity extends FragmentActivity {
 
@@ -59,7 +63,7 @@ public class MainActivity extends FragmentActivity {
                 public void validate(String newPassword) {
                     if (newPassword == null || newPassword.length() == 0) {} else {
                         savePreferences(false, newPassword);
-                        badapter.invalidate();
+                        badapter.renew();
                     }
                 }
             });
@@ -106,21 +110,40 @@ public class MainActivity extends FragmentActivity {
 
     private boolean isSU() {
         final EditText editTextPassword = (EditText) findViewById(R.id.editText);
-        return password.equals(editTextPassword.getText().toString());
-
+        if (password !=null) {
+            return password.equals(editTextPassword.getText().toString());
+        }
+        return false;
     }
     private boolean isAllowed(AppDetail ad) {
-        if (allowedApps.contains(ad.getPackageName())) {
+        if (allowedApps != null && allowedApps.contains(ad.getPackageName())) {
             return true;
         }
         return isSU();
     }
 
+    private void fixExtDir() {
+        File fl = IOUtil.getExternalFile(true, EXT_APP_DIR);
+        if (fl != null && fl.exists() && !fl.isDirectory()) {
+            fl.delete();
+        }
+    }
+    private String getDefaultAllowedApps() {
+        String defVal = IOUtil.readExt(EXT_APP_DIR + "allowedApps");
+        if (defVal == null) {
+            defVal = "[]";
+            AndrUtilGUI.toastLong(this, "Can't read from:" + EXT_APP_DIR + "allowedApps");
+            Log.d("EXT_APP_DIR", "Can't read from:" + EXT_APP_DIR + "allowedApps");
+        }
+        return defVal;
+    }
     private void restorePreferences() {
+        fixExtDir();
+        String defVal = getDefaultAllowedApps();
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         if (prefs != null) {
             password = prefs.getString("password", "zzz");
-            String arrStr = prefs.getString("allowedApps", "[]");
+            String arrStr = prefs.getString("allowedApps", defVal);
             try {
                 JSONArray arr = new JSONArray(arrStr);
                 allowedApps.clear();
@@ -132,6 +155,8 @@ public class MainActivity extends FragmentActivity {
             }
         }
     }
+
+    public static String EXT_APP_DIR = "ru.org.sevn/schoolphone/";
     private void savePreferences(boolean async, String pswd) {
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
@@ -140,18 +165,23 @@ public class MainActivity extends FragmentActivity {
             editor.putString("password", pswd);
         }
         JSONArray arr = new JSONArray(allowedApps);
+        boolean saveExt = false;
         try {
-            editor.putString("allowedApps", arr.toString(2));
+            String jsonStr = arr.toString(2);
+            editor.putString("allowedApps", jsonStr);
+            saveExt = IOUtil.saveExt(EXT_APP_DIR + "allowedApps", jsonStr.getBytes(IOUtil.FILE_ENCODING));
         } catch (JSONException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
 
         if (async) {
             editor.apply();
-            AndrUtilGUI.toastLong(this, "Settings are applied");
+            AndrUtilGUI.toastLong(this, "Settings are applied. Save ext:" + saveExt);
         } else {
             editor.commit();
-            AndrUtilGUI.toastLong(this, "Settings are commited");
+            AndrUtilGUI.toastLong(this, "Settings are commited. Save ext:" + saveExt);
         }
     }
 
@@ -173,6 +203,13 @@ public class MainActivity extends FragmentActivity {
         registerForContextMenu(gridView);
         gridView.setNumColumns(numColumns);
         badapter = new ButtonGridAdapter(this, AppCategoryStore.makeAppCategory(1, "apps"), dw, dw) {
+            @Override
+            public boolean canShow(AppDetail ad) {
+                boolean ret = isAllowed(ad);
+                //Log.d("zzz>", ""+ret);
+                return ret;
+            }
+
             @Override
             public void arrangeButtonView(Context ctx, View convertView, AppDetail ad, TextView appLabel, ImageView appIcon) {
                 if (isAllowed(ad)) {
@@ -211,7 +248,7 @@ public class MainActivity extends FragmentActivity {
 
             @Override
             public void afterTextChanged(Editable s) {
-                badapter.invalidate();
+                badapter.renew();
             }
         });
 
@@ -236,7 +273,7 @@ public class MainActivity extends FragmentActivity {
             }
 
         });
-
+        badapter.renew();
     }
 
     public static final int CANCEL = 0;
@@ -288,6 +325,9 @@ public class MainActivity extends FragmentActivity {
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         switch(id) {
+            case R.id.action_export:
+                //DialogUtil.ask(this, "Export", null);
+                return true;
             case R.id.action_settings:
                 if (isSU()) {
                     newPassword();
@@ -303,6 +343,11 @@ public class MainActivity extends FragmentActivity {
                 }
                 return true;
             case R.id.action_renew:
+                this.badapter.renew();
+                return true;
+            case R.id.action_clear:
+                final EditText editTextPassword = (EditText) findViewById(R.id.editText);
+                editTextPassword.setText("");
                 this.badapter.renew();
                 return true;
         }

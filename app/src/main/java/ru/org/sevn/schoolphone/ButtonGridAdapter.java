@@ -43,23 +43,34 @@ import android.widget.TextView;
 
 public class ButtonGridAdapter extends BaseAdapter implements OnItemClickListener {
 
+    class AppDetailCanAdd implements AndrUtil.CanAdd<AppDetail> {
+
+        @Override
+        public boolean canAdd(AppDetail o) {
+            return canShow(o);
+        }
+    }
 
     private String lastSearch = "";
     public void search(String s) {
         lastSearch = s;
         appDetails.clear();
         if (s == null || s.length() == 0) {
-            AndrUtil.copy(appDetails, appDetailsAll);
+            AndrUtil.copy(appDetails, appDetailsAll, new AppDetailCanAdd());
         } else
             for(Object obj : appDetailsAll) {
                 if (obj instanceof AppDetail) {
                     AppDetail ad = (AppDetail)obj;
-                    if (ad.getLabel() != null && ad.getLabel().toLowerCase().startsWith(s)) {
+                    if (ad.getLabel() != null && ad.getLabel().toLowerCase().startsWith(s) && canShow(ad)) {
                         appDetails.add(ad);
                     }
                 }
             }
         notifyDataSetChanged();
+    }
+
+    public boolean canShow(AppDetail ad) {
+        return true;
     }
 
     public void invalidate() {
