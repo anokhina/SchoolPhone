@@ -116,7 +116,7 @@ public class ButtonGridAdapter extends BaseAdapter implements OnItemClickListene
         this.category = category;
         appDetailsAll = new ArrayList<>();
         ///////////////////////////////
-        AndrUtil.copy(appDetailsAll, AppCategoryManager.getAppsInfo(ctx, category.getId(), new AppDetailComparator()));
+        AndrUtil.copy(appDetailsAll, AppCategoryManager.getAppsInfo(true, ctx, category.getId(), new AppDetailComparator()));
         appDetails = new ArrayList<>(appDetailsAll.size());
         AndrUtil.copy(appDetails, appDetailsAll);
         this.width = dw;
@@ -124,8 +124,11 @@ public class ButtonGridAdapter extends BaseAdapter implements OnItemClickListene
     }
 
     public void renew() {
+        renew(false);
+    }
+    public void renew(boolean fetchApp) {
         appDetailsAll.clear();
-        AndrUtil.copy(appDetailsAll, AppCategoryManager.getAppsInfo(context, category.getId(), new AppDetailComparator()));
+        AndrUtil.copy(appDetailsAll, AppCategoryManager.getAppsInfo(fetchApp, context, category.getId(), new AppDetailComparator()));
         search(lastSearch);
     }
 

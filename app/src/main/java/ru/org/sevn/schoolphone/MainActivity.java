@@ -46,6 +46,7 @@ import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 
+import ru.org.sevn.schoolphone.andr.AndrUtil;
 import ru.org.sevn.schoolphone.andr.AndrUtilGUI;
 import ru.org.sevn.schoolphone.andr.DialogUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
@@ -58,11 +59,11 @@ public class MainActivity extends FragmentActivity {
 
     private void newPassword() {
         if (isSU()) {
-            DialogUtil.ask(this, "Enter new password:", new DialogUtil.InputValidator() {
+            DialogUtil.askPassword(this, "Enter new password:", new DialogUtil.InputValidator() {
                 @Override
                 public void validate(String newPassword) {
                     if (newPassword == null || newPassword.length() == 0) {} else {
-                        savePreferences(false, newPassword);
+                        savePreferences(VERSION, false, newPassword);
                         badapter.renew();
                     }
                 }
@@ -76,14 +77,14 @@ public class MainActivity extends FragmentActivity {
         if (currentAppDetail != null) {
             allowedApps.add(currentAppDetail.getPackageName());
             badapter.invalidate();
-            savePreferences(true, null);
+            savePreferences(VERSION, true, null);
         }
     }
     private void disable() {
         if (currentAppDetail != null) {
             allowedApps.remove(currentAppDetail.getPackageName());
             badapter.invalidate();
-            savePreferences(true, null);
+            savePreferences(VERSION, true, null);
         }
     }
     public static void resetPreferredLauncherAndOpenChooser(Context context) {
@@ -128,22 +129,30 @@ public class MainActivity extends FragmentActivity {
             fl.delete();
         }
     }
-    private String getDefaultAllowedApps() {
-        String defVal = IOUtil.readExt(EXT_APP_DIR + "allowedApps");
+    private String getDefaultAllowedApps(String versionWithPoint, String defValue) {
+        String fileName = EXT_APP_DIR + "allowedApps" + versionWithPoint;
+        String defVal = IOUtil.readExt(fileName);
         if (defVal == null) {
-            defVal = "[]";
-            AndrUtilGUI.toastLong(this, "Can't read from:" + EXT_APP_DIR + "allowedApps");
-            Log.d("EXT_APP_DIR", "Can't read from:" + EXT_APP_DIR + "allowedApps");
+            defVal = defValue;
+            AndrUtilGUI.toastLong(this, "Can't read from:" + fileName);
+            Log.d("EXT_APP_DIR", "Can't read from:" + fileName);
         }
         return defVal;
     }
+    //fixExtDir();
     private void restorePreferences() {
-        fixExtDir();
-        String defVal = getDefaultAllowedApps();
+        restorePreferences(getDefaultAllowedApps("", "[]"), false);
+    }
+    private void restorePreferences(String defVal, boolean fromDefault) {
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         if (prefs != null) {
             password = prefs.getString("password", "zzz");
-            String arrStr = prefs.getString("allowedApps", defVal);
+            String arrStr;
+            if (fromDefault) {
+                arrStr = defVal;
+            } else {
+                arrStr = prefs.getString("allowedApps", defVal);
+            }
             try {
                 JSONArray arr = new JSONArray(arrStr);
                 allowedApps.clear();
@@ -156,8 +165,9 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
+    public static String VERSION = "2";
     public static String EXT_APP_DIR = "ru.org.sevn/schoolphone/";
-    private void savePreferences(boolean async, String pswd) {
+    private void savePreferences(String version, boolean async, String pswd) {
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         if (pswd != null) {
@@ -170,6 +180,7 @@ public class MainActivity extends FragmentActivity {
             String jsonStr = arr.toString(2);
             editor.putString("allowedApps", jsonStr);
             saveExt = IOUtil.saveExt(EXT_APP_DIR + "allowedApps", jsonStr.getBytes(IOUtil.FILE_ENCODING));
+            saveExt = IOUtil.saveExt(EXT_APP_DIR + "allowedApps." + version, jsonStr.getBytes(IOUtil.FILE_ENCODING));
         } catch (JSONException e) {
             e.printStackTrace();
         } catch (UnsupportedEncodingException e) {
@@ -274,6 +285,12 @@ public class MainActivity extends FragmentActivity {
 
         });
         badapter.renew();
+
+        String myHome = AndrUtil.getDefaultHome(MainActivity.this);
+        AndrUtilGUI.toastLong(MainActivity.this, "Home:" + myHome);
+        if (!"ru.org.sevn.schoolphone".equals(myHome)) {
+            resetDefault();
+        }
     }
 
     public static final int CANCEL = 0;
@@ -325,25 +342,43 @@ public class MainActivity extends FragmentActivity {
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         switch(id) {
+            case R.id.action_restore:
+                if (!isSU()) {
+                    forbiddenMsg("import settings ");
+                } else {
+                    importSettings();
+                }
+                return true;
             case R.id.action_export:
-                //DialogUtil.ask(this, "Export", null);
+                if (!isSU()) {
+                    forbiddenMsg("export settings ");
+                } else {
+                    exportSettings();
+                }
                 return true;
             case R.id.action_settings:
-                if (isSU()) {
-                    newPassword();
+                if (!isSU()) {
+                    forbiddenMsg("set parameters ");
                 } else {
-                    DialogUtil.alert(MainActivity.this, "Forbidden", "You are not allowed to set parameters", null);
+                    newPassword();
                 }
                 return true;
             case R.id.set_default_launcher:
-                if (isSU()) {
-                    resetDefault();
+                String myHome = AndrUtil.getDefaultHome(MainActivity.this);
+                AndrUtilGUI.toastLong(MainActivity.this, "Home:" + myHome);
+                if ("ru.org.sevn.schoolphone".equals(myHome)) {
+                    if (!isSU()) {
+                        forbiddenMsg("reset defaults ");
+                    } else {
+                        resetDefault();
+                    }
                 } else {
-                    DialogUtil.alert(MainActivity.this, "Forbidden", "You are not allowed to reset defaults ", null);
+                    resetDefault();
                 }
+
                 return true;
             case R.id.action_renew:
-                this.badapter.renew();
+                this.badapter.renew(true);
                 return true;
             case R.id.action_clear:
                 final EditText editTextPassword = (EditText) findViewById(R.id.editText);
@@ -352,6 +387,49 @@ public class MainActivity extends FragmentActivity {
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void exportSettings() {
+        DialogUtil.ask(this, "Export for ", VERSION, new DialogUtil.InputValidator() {
+            @Override
+            public void validate(String txt) {
+                if (txt != null) {
+                    txt = txt.trim();
+                    if (txt.length() > 0) {
+                        MainActivity.this.savePreferences(txt, true, null);
+                    }
+                }
+            }
+        });
+    }
+
+    private void importSettings() {
+        DialogUtil.ask(this, "Import for ", VERSION, new DialogUtil.InputValidator() {
+            @Override
+            public void validate(String txt) {
+                Log.d("zzz", ">>>"+txt+"<<<");
+                if (txt == null) { txt = ""; }
+                else {
+                    txt = txt.trim();
+                    if (txt.length() > 0) {
+                        if (!txt.startsWith(".")) {
+                            txt = "." + txt;
+                        }
+                    }
+                }
+                Log.d("zzz", ">>>"+txt+"<<<");
+
+                String restoreStr = getDefaultAllowedApps(txt, null);
+                if (restoreStr != null) {
+                    restorePreferences(restoreStr, true);
+                    badapter.renew(true);
+                }
+            }
+        });
+    }
+
+    private void forbiddenMsg(String actionName) {
+        DialogUtil.alert(MainActivity.this, "Forbidden", "You are not allowed to " + actionName, null);
     }
 
     @Override

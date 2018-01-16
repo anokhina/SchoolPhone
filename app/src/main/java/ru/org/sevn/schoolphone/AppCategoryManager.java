@@ -23,14 +23,14 @@ import ru.org.sevn.schoolphone.andr.AndrUtil;
 import android.content.Context;
 
 public class AppCategoryManager {
-    //private static List<AppDetail> allApps = new ArrayList<>();
+    private static List<AppDetail> allApps = new ArrayList<>();
 
-    public static List<AppDetail> getAppsInfo(final Context ctx, final long category, final AppDetailComparator cmpr){
-//        if (allApps.size() == 0) { //TODO sync and comparator
-//            allApps = AppDetailManager.makeAppDetailList(ctx, AndrUtil.getAvailableActivities(ctx), new AppDetailComparator());
-//        }
+    public static List<AppDetail> getAppsInfo(final boolean fetchApp, final Context ctx, final long category, final AppDetailComparator cmpr){
+        if (allApps.size() == 0 || fetchApp) { //TODO sync and comparator
+            allApps = AppDetailManager.makeAppDetailList(ctx, AndrUtil.getAvailableActivities(ctx), new AppDetailComparator());
+        }
         List<AppDetail> apps = new ArrayList<AppDetail>();
-        AndrUtil.copy(apps, AppDetailManager.makeAppDetailList(ctx, AndrUtil.getAvailableActivities(ctx), new AppDetailComparator()));
+        AndrUtil.copy(apps, allApps);
 
         return apps;
     }

@@ -64,12 +64,19 @@ public class DialogUtil {
     public interface InputValidator {
         void validate(String txt);
     }
-    public static void ask(final Context context, final String title, final InputValidator iv) {
+    public static void askPassword(final Context context, final String title, final InputValidator iv) {
+        ask(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, context, title, "", iv);
+    }
+    public static void ask(final Context context, final String title, final String defaultValue, final InputValidator iv) {
+        ask(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL, context, title, "", iv);
+    }
+    public static void ask(final int inputType, final Context context, final String title, final String defaultValue, final InputValidator iv) {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle(title);
 
         final EditText input = new EditText(context);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        input.setInputType(inputType);
+        input.setText(defaultValue);
         builder.setView(input);
 
         builder.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {

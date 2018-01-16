@@ -149,4 +149,20 @@ public class AndrUtil {
         return manager.getInstalledProviders();
     }
 
+    public static String getDefaultHome(Context ctx) {
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_HOME);
+        final ResolveInfo res = ctx.getPackageManager().resolveActivity(intent, 0);
+        if (res.activityInfo == null) {
+        } else if ("android".equals(res.activityInfo.packageName)) {
+            // No default selected
+            return res.activityInfo.packageName;
+        } else {
+            // res.activityInfo.packageName and res.activityInfo.name gives you the default app
+            return res.activityInfo.packageName;
+        }
+        //com.android.internal.app.ResolverActivity
+        return null;
+    }
+
 }
