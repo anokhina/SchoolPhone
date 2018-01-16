@@ -68,7 +68,7 @@ public class DialogUtil {
         ask(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, context, title, "", iv);
     }
     public static void ask(final Context context, final String title, final String defaultValue, final InputValidator iv) {
-        ask(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL, context, title, "", iv);
+        ask(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL, context, title, defaultValue, iv);
     }
     public static void ask(final int inputType, final Context context, final String title, final String defaultValue, final InputValidator iv) {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);

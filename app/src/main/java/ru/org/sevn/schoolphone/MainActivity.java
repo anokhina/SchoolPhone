@@ -407,7 +407,6 @@ public class MainActivity extends FragmentActivity {
         DialogUtil.ask(this, "Import for ", VERSION, new DialogUtil.InputValidator() {
             @Override
             public void validate(String txt) {
-                Log.d("zzz", ">>>"+txt+"<<<");
                 if (txt == null) { txt = ""; }
                 else {
                     txt = txt.trim();
@@ -417,7 +416,6 @@ public class MainActivity extends FragmentActivity {
                         }
                     }
                 }
-                Log.d("zzz", ">>>"+txt+"<<<");
 
                 String restoreStr = getDefaultAllowedApps(txt, null);
                 if (restoreStr != null) {
