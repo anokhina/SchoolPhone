@@ -4,8 +4,13 @@
     tools:context="ru.org.sevn.simplelauncher.MainActivity" >
 
     <item
+        android:id="@+id/action_profile"
+        android:orderInCategory="90"
+        android:title="Profile"
+        app:showAsAction="never"/>
+    <item
         android:id="@+id/action_restore"
-        android:orderInCategory="10"
+        android:orderInCategory="90"
         android:title="Restore"
         app:showAsAction="never"/>
     <item

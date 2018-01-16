@@ -53,8 +53,12 @@ import ru.org.sevn.schoolphone.andr.IOUtil;
 
 public class MainActivity extends FragmentActivity {
 
+    static final String PROFILE_SCHOOL = "_school";
+    static final String PROFILE_ALL = "_school1";
+
     ButtonGridAdapter badapter;
     private String password ="fake"; //TODO encript
+    private String profile = PROFILE_SCHOOL;
     private ArrayList<String> allowedApps = new ArrayList<>();
 
     private void newPassword() {
@@ -130,7 +134,12 @@ public class MainActivity extends FragmentActivity {
         }
     }
     private String getDefaultAllowedApps(String versionWithPoint, String defValue) {
-        String fileName = EXT_APP_DIR + "allowedApps" + versionWithPoint;
+        String fileName = EXT_APP_DIR + "allowedApps" + profile + versionWithPoint;
+        File fl = IOUtil.getExternalFile(false, fileName);
+        if (!fl.exists() && versionWithPoint.length() > 0) {
+            fileName = EXT_APP_DIR + "allowedApps" + versionWithPoint;
+        }
+
         String defVal = IOUtil.readExt(fileName);
         if (defVal == null) {
             defVal = defValue;
@@ -151,7 +160,7 @@ public class MainActivity extends FragmentActivity {
             if (fromDefault) {
                 arrStr = defVal;
             } else {
-                arrStr = prefs.getString("allowedApps", defVal);
+                arrStr = prefs.getString("allowedApps"+profile, defVal);
             }
             try {
                 JSONArray arr = new JSONArray(arrStr);
@@ -174,13 +183,15 @@ public class MainActivity extends FragmentActivity {
             password = pswd;
             editor.putString("password", pswd);
         }
+        editor.putString("profile", profile);
         JSONArray arr = new JSONArray(allowedApps);
         boolean saveExt = false;
+        String mainFileName = EXT_APP_DIR + "allowedApps" + profile;
         try {
             String jsonStr = arr.toString(2);
-            editor.putString("allowedApps", jsonStr);
-            saveExt = IOUtil.saveExt(EXT_APP_DIR + "allowedApps", jsonStr.getBytes(IOUtil.FILE_ENCODING));
-            saveExt = IOUtil.saveExt(EXT_APP_DIR + "allowedApps." + version, jsonStr.getBytes(IOUtil.FILE_ENCODING));
+            editor.putString("allowedApps"+profile, jsonStr);
+            saveExt = IOUtil.saveExt(mainFileName, jsonStr.getBytes(IOUtil.FILE_ENCODING));
+            saveExt = IOUtil.saveExt(mainFileName + "." + version, jsonStr.getBytes(IOUtil.FILE_ENCODING));
         } catch (JSONException e) {
             e.printStackTrace();
         } catch (UnsupportedEncodingException e) {
@@ -189,10 +200,10 @@ public class MainActivity extends FragmentActivity {
 
         if (async) {
             editor.apply();
-            AndrUtilGUI.toastLong(this, "Settings are applied. Save ext:" + saveExt);
+            AndrUtilGUI.toastLong(this, "Settings are applied. Save ext:" + saveExt + ":" + mainFileName);
         } else {
             editor.commit();
-            AndrUtilGUI.toastLong(this, "Settings are commited. Save ext:" + saveExt);
+            AndrUtilGUI.toastLong(this, "Settings are commited. Save ext:" + saveExt + ":" + mainFileName);
         }
     }
 
@@ -342,6 +353,28 @@ public class MainActivity extends FragmentActivity {
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
         switch(id) {
+            case R.id.action_profile:
+                if (!isSU()) {
+                    DialogUtil.alert(MainActivity.this, "Profile:", profile, null);
+                } else {
+                    DialogUtil.ask(this, "Set profile to ", profile, new DialogUtil.InputValidator() {
+                        @Override
+                        public void validate(String txt) {
+                            if (txt != null) {
+                                txt = txt.trim();
+                                if (txt.length() > 0 && isAllowedProfile(txt)) {
+                                    profile = txt;//todo set into settings to restore on startup
+                                    restorePreferences();
+                                    badapter.renew(true);
+                                    savePreferences(VERSION, true, null);
+                                } else {
+                                    forbiddenMsg(" set the profile name to " + txt);
+                                }
+                            }
+                        }
+                    });
+                }
+                return true;
             case R.id.action_restore:
                 if (!isSU()) {
                     forbiddenMsg("import settings ");
@@ -387,6 +420,10 @@ public class MainActivity extends FragmentActivity {
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private boolean isAllowedProfile(String n) {
+        return (PROFILE_SCHOOL.equals(n) || PROFILE_ALL.equals(n));
     }
 
     private void exportSettings() {
