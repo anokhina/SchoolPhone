@@ -23,7 +23,10 @@ import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.EditText;
 import android.widget.Toast;
 
 public class AndrUtilGUI {
@@ -75,5 +78,19 @@ requestWindowFeature(Window.FEATURE_NO_TITLE); getWindow().setFlags(WindowManage
         Toast t = Toast.makeText(ctx, s, length);
         t.setGravity(Gravity.TOP|Gravity.LEFT, 0, 0);
         t.show();
+    }
+
+    public static void setClearAction(EditText editText) {
+        editText.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                if (motionEvent.getAction() == MotionEvent.ACTION_UP){
+                    if (motionEvent.getX()>(view.getWidth()-view.getPaddingRight())){
+                        ((EditText)view).setText("");
+                    }
+                }
+                return false;
+            }
+        });
     }
 }

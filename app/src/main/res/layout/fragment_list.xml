@@ -11,6 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ems="10"
+        android:background="@drawable/tvx"
         android:inputType="textPassword" />
 
     <EditText
@@ -22,7 +23,8 @@
 	    android:scrollHorizontally="true"
 	    android:ellipsize="end"
 	    android:paddingLeft="15dp"
-	    android:hint="search..."         
+	    android:hint="search..."
+        android:background="@drawable/tvx"
         >
 
         <requestFocus />

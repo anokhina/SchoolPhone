@@ -217,6 +217,9 @@ public class MainActivity extends FragmentActivity {
 
         EditText editText = (EditText) findViewById(R.id.editText_searchApp);
 
+        AndrUtilGUI.setClearAction(editText);
+        AndrUtilGUI.setClearAction(editTextPassword);
+
         int dw = AppConstants.CELL_WIDTH;
         Point wh = AndrUtilGUI.getWidthHeight(this);
         int numColumns = wh.x / dw;
@@ -458,6 +461,7 @@ public class MainActivity extends FragmentActivity {
                 if (restoreStr != null) {
                     restorePreferences(restoreStr, true);
                     badapter.renew(true);
+                    savePreferences(VERSION, true, null);
                 }
             }
         });
