@@ -21,7 +21,7 @@ import java.util.HashMap;
 public class PersonalConstants {
     private static final HashMap<String, String> settings = new HashMap<>();
 
-    public String get(String key) {
+    public static String get(String key) {
         return settings.get(key);
     }
 }
