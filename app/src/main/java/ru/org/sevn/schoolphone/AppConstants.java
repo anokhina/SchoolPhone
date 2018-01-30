@@ -19,6 +19,7 @@ package ru.org.sevn.schoolphone;
 public class AppConstants {
     public static final int CELL_WIDTH = 60;
 
+    public static final String ADMIN_PHONE = "adminPhone";
 
 
 }

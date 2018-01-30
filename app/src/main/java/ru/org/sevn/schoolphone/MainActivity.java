@@ -23,7 +23,9 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.media.AudioManager;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -156,6 +158,11 @@ public class MainActivity extends FragmentActivity {
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         if (prefs != null) {
             password = prefs.getString("password", "zzz");
+            String tmpProfile = prefs.getString(PREF_SELECTED_PROFILE, PROFILE_SCHOOL);
+            if (isAllowedProfile(tmpProfile)) {
+                profile = tmpProfile;
+                adjustVolume();
+            }
             String arrStr;
             if (fromDefault) {
                 arrStr = defVal;
@@ -174,8 +181,13 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
-    public static String VERSION = "2";
+    public static String VERSION = "3";
     public static String EXT_APP_DIR = "ru.org.sevn/schoolphone/";
+    private void savePreferencesProfile() {
+        SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(PREF_SELECTED_PROFILE, profile).commit();
+    }
     private void savePreferences(String version, boolean async, String pswd) {
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
@@ -183,7 +195,7 @@ public class MainActivity extends FragmentActivity {
             password = pswd;
             editor.putString("password", pswd);
         }
-        editor.putString("profile", profile);
+        editor.putString(PREF_SELECTED_PROFILE, profile);
         JSONArray arr = new JSONArray(allowedApps);
         boolean saveExt = false;
         String mainFileName = EXT_APP_DIR + "allowedApps" + profile;
@@ -349,6 +361,29 @@ public class MainActivity extends FragmentActivity {
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
+
+    private static final String PREF_SELECTED_PROFILE = "profile";
+
+    private void setProfileTo(String txt) {
+        setProfileTo(txt, false);
+    }
+    public void setProfileTo(String txt, boolean noui) {
+        if (txt != null) {
+            txt = txt.trim();
+            if (txt.length() > 0 && isAllowedProfile(txt)) {
+                profile = txt;
+                adjustVolume();
+                savePreferencesProfile();
+                restorePreferences();
+                badapter.renew(true);
+                savePreferences(VERSION, true, null);
+            } else {
+                if (noui) {} else {
+                    forbiddenMsg(" set the profile name to " + txt);
+                }
+            }
+        }
+    }
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
@@ -363,17 +398,7 @@ public class MainActivity extends FragmentActivity {
                     DialogUtil.ask(this, "Set profile to ", profile, new DialogUtil.InputValidator() {
                         @Override
                         public void validate(String txt) {
-                            if (txt != null) {
-                                txt = txt.trim();
-                                if (txt.length() > 0 && isAllowedProfile(txt)) {
-                                    profile = txt;//todo set into settings to restore on startup
-                                    restorePreferences();
-                                    badapter.renew(true);
-                                    savePreferences(VERSION, true, null);
-                                } else {
-                                    forbiddenMsg(" set the profile name to " + txt);
-                                }
-                            }
+                            setProfileTo(txt);
                         }
                     });
                 }
@@ -474,6 +499,39 @@ public class MainActivity extends FragmentActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        SELF = this;
+    }
+    @Override
+    protected void onDestroy() {
+        SELF = null;
+        super.onDestroy();
     }
 
+    private void adjustVolume() {
+        if (PROFILE_SCHOOL.equals(profile)) {
+            setSMSVolume(0);
+        } else {
+            setSMSVolume(100);
+        }
+    }
+    void setSMSVolume(int pct) {
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+        int vol = 0;
+        int maxVol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        if (pct == 100) {
+            vol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
+        } else if (pct == 0) {
+            vol = 0;
+        } else {
+            vol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION) * pct / 100;
+        }
+        am.setStreamVolume(AudioManager.STREAM_NOTIFICATION,
+                vol,
+                0);
+    }
+
+    static MainActivity SELF;
 }
