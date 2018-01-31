@@ -4,8 +4,24 @@
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
+
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.PROCESS_INCOMING_CALLS" />
+
+    <!-- not used -->
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!--
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
+    <uses-permission android:name="android.permission.WRITE_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    -->
 
     <application
         android:allowBackup="true"
@@ -56,11 +72,47 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-        <receiver android:name=".SMSReceiver" >
-            <intent-filter android:priority="1001" >
+        <receiver android:name=".cell.CallReceiver">
+            <intent-filter android:priority="999">
+                <action android:name="android.intent.action.PHONE_STATE"/>
+                <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".cell.SMSReceiver" >
+            <intent-filter android:priority="999" >
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
+        <receiver android:name=".alarm.AlarmReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="ru.org.sevn.schoolphone.BATTERY_ALARM" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".battery.PowerConnectionReceiver"
+            >
+            <intent-filter>
+                <!--
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+
+                <action android:name="android.intent.action.ACTION_SCREEN_OFF" />
+                <action android:name="android.intent.action.ACTION_SCREEN_ON" />
+
+                <action android:name="android.intent.action.ACTION_BATTERY_CHANGED" />
+                -->
+                <action android:name="android.intent.action.ACTION_BATTERY_LOW" />
+                <action android:name="android.intent.action.ACTION_BATTERY_OKAY" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".NotificationReceiver"
+            >
+            <intent-filter>
+                <action android:name="ru.org.sevn.schoolphone.MAIN_NOTE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

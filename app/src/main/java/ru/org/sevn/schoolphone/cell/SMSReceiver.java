@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-package ru.org.sevn.schoolphone;
+package ru.org.sevn.schoolphone.cell;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
-import android.util.Log;
+
+import ru.org.sevn.schoolphone.AppBroadcastReceiver;
+import ru.org.sevn.schoolphone.MainActivity;
+import ru.org.sevn.schoolphone.PersonalConstants;
+import ru.org.sevn.schoolphone.andr.AudioUtil;
 
 import static ru.org.sevn.schoolphone.AppConstants.ADMIN_PHONE;
 
-public class SMSReceiver extends BroadcastReceiver {
+public class SMSReceiver extends AppBroadcastReceiver {
     private static final String TAG = "SMSReceiver";
     private static final String PROFILE_MSG = "profile=";
     private static final String VOLUME_MSG = "volume=";
@@ -40,7 +43,7 @@ public class SMSReceiver extends BroadcastReceiver {
         //Log.i(TAG, msgBody);
         //Log.i(TAG, msg.getOriginatingAddress());
         if (isAdminPhone((msg.getOriginatingAddress()))) {
-            MainActivity activity = MainActivity.SELF; //TODO it
+            MainActivity activity = getMainActivity(); //TODO it
             int idxProf = msgBody.indexOf(PROFILE_MSG);
             if (idxProf >= 0) {
                 int nextDelim = msgBody.indexOf(",", idxProf);
@@ -63,7 +66,7 @@ public class SMSReceiver extends BroadcastReceiver {
                 try {
                     int volPct = Integer.parseInt(volume);
                     if (activity != null) {
-                        activity.setSMSVolume(volPct);
+                        AudioUtil.setSMSCallVolume(activity, volPct);
                     }
                     noForw();
                 } catch (Exception e) {

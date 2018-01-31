@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
-package ru.org.sevn.schoolphone;
+package ru.org.sevn.schoolphone.alarm;
 
-public class AppConstants {
-    public static final int CELL_WIDTH = 60;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
 
-    public static final String ADMIN_PHONE = "adminPhone";
-    public static final String EMERGENCY_PHONE = "emergencyPhone";
+import ru.org.sevn.schoolphone.battery.PowerConnectionReceiver;
 
-
+public class AlarmReceiver extends BroadcastReceiver {
+    public static final String POWER_ALARM = "ru.org.sevn.schoolphone.BATTERY_ALARM";
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (intent.getAction().equals(POWER_ALARM)) {
+            PowerConnectionReceiver.batteryChanged(context);
+            //TODO log it
+        }
+    }
 }

@@ -16,11 +16,10 @@
 
 package ru.org.sevn.schoolphone;
 
-public class AppConstants {
-    public static final int CELL_WIDTH = 60;
+import android.content.BroadcastReceiver;
 
-    public static final String ADMIN_PHONE = "adminPhone";
-    public static final String EMERGENCY_PHONE = "emergencyPhone";
-
-
+public abstract class AppBroadcastReceiver extends BroadcastReceiver {
+    protected MainActivity getMainActivity() {
+        return MainActivity.SELF;
+    }
 }

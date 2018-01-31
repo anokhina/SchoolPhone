@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package ru.org.sevn.schoolphone;
+package ru.org.sevn.schoolphone.andr;
 
-public class AppConstants {
-    public static final int CELL_WIDTH = 60;
+import android.content.ContentResolver;
 
-    public static final String ADMIN_PHONE = "adminPhone";
-    public static final String EMERGENCY_PHONE = "emergencyPhone";
-
+public class SincUtil {
+    public static void sync(boolean st) {
+        ContentResolver.setMasterSyncAutomatically(st);
+    }
 
 }

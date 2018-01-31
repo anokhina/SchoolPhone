@@ -23,9 +23,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Point;
-import android.media.AudioManager;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -50,6 +48,7 @@ import java.util.ArrayList;
 
 import ru.org.sevn.schoolphone.andr.AndrUtil;
 import ru.org.sevn.schoolphone.andr.AndrUtilGUI;
+import ru.org.sevn.schoolphone.andr.AudioUtil;
 import ru.org.sevn.schoolphone.andr.DialogUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
 
@@ -317,6 +316,9 @@ public class MainActivity extends FragmentActivity {
         if (!"ru.org.sevn.schoolphone".equals(myHome)) {
             resetDefault();
         }
+
+        //AlarmUtil.setAlarm(this, AlarmReceiver.POWER_ALARM, 1000*1, 1000*5);
+
     }
 
     public static final int CANCEL = 0;
@@ -509,28 +511,25 @@ public class MainActivity extends FragmentActivity {
 
     private void adjustVolume() {
         if (PROFILE_SCHOOL.equals(profile)) {
-            setSMSVolume(0);
+            AudioUtil.setSMSCallVolume(this, 0);
         } else {
-            setSMSVolume(100);
+            AudioUtil.setSMSCallVolume(this, 100);
         }
     }
-    void setSMSVolume(int pct) {
-        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 
-        int vol = 0;
-        int maxVol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
-        if (pct == 100) {
-            vol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
-        } else if (pct == 0) {
-            vol = 0;
-        } else {
-            vol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION) * pct / 100;
+    private int callVol = -1;
+    public void saveSettings() {
+        //TODO
+        callVol = AudioUtil.getSMSCallVol(this);
+        //System.err.println("+++++++++" + callVol);
+    }
+    public void restoreSettings() {
+        //TODO
+        if (callVol >= 0) {
+            AudioUtil.setSMSCallVol(this, callVol);
+            //System.err.println("+++++++++>" + callVol);
+            callVol = -1;
         }
-        am.setStreamVolume(AudioManager.STREAM_NOTIFICATION,
-                vol,
-                0);
     }
 
     static MainActivity SELF;
