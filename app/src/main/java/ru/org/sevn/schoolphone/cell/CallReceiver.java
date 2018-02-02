@@ -24,12 +24,13 @@ import android.widget.Toast;
 import java.lang.reflect.Method;
 
 import ru.org.sevn.schoolphone.AppBroadcastReceiver;
-import ru.org.sevn.schoolphone.AppNotifier;
+import ru.org.sevn.schoolphone.AppConstants;
+import ru.org.sevn.schoolphone.MainActivity;
 import ru.org.sevn.schoolphone.PersonalConstants;
 import ru.org.sevn.schoolphone.andr.AudioUtil;
 import ru.org.sevn.schoolphone.andr.ToastUtil;
 
-import static ru.org.sevn.schoolphone.AppConstants.EMERGENCY_PHONE;
+import static ru.org.sevn.schoolphone.AppConstants.ADMIN_PHONE;
 
 public class CallReceiver extends AppBroadcastReceiver {
     private boolean endCallByTMReflection(Context ctx) {
@@ -78,33 +79,37 @@ public class CallReceiver extends AppBroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent){
         String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-        String msg = null;
 
         String phoneKey = TelephonyManager.EXTRA_INCOMING_NUMBER;
         String phoneNumber = intent.getStringExtra(phoneKey);
 
-        msg = phoneNumber;
 
         if (Intent.ACTION_NEW_OUTGOING_CALL.equals(intent.getAction())) {
 //            String phoneKey = Intent.EXTRA_PHONE_NUMBER;
 //            String phoneNumber = intent.getStringExtra(phoneKey);
         } else
         if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
+            if (isAdminCallProfileAll(phoneNumber)) {
+                getMainActivity().setProfileTo(MainActivity.PROFILE_ALL, true);
+            } else
             if (isAdminPhone(phoneNumber)) {
+                getMainActivity().setProfileTo(MainActivity.PROFILE_SCHOOL, true);
+            }
+
+            if (isEmergencyCall(phoneNumber)) {
                 getMainActivity().saveSettings();
                 AudioUtil.setSMSCallVolume(context, 100);
             }
         } else
         if (TelephonyManager.EXTRA_STATE_IDLE.equals(state)) {
-            if (isAdminPhone(phoneNumber)) {
-                getMainActivity().restoreSettings();
-            }
+            getMainActivity().restoreSettings();
         } else
         if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
+            getMainActivity().restoreSettings();
         }
 
         //int id = getCallNum(phoneNumber);
-        //System.err.println("+++++++++++"+state+":"+msg+":"+id);
+        //System.err.println("+++++++++++"+state+":"+phoneNumber);
         //new AppNotifier().showCallNotify(id, context,"Call", ""+state+":"+msg);
 //        if (msg != null) {
 //            toast(context, msg, Toast.LENGTH_LONG);
@@ -127,9 +132,25 @@ public class CallReceiver extends AppBroadcastReceiver {
             ToastUtil.anyToast(context, msg, length);
         }
     }
+    private boolean isEmergencyCall(String ph) {
+        String adminPhone = PersonalConstants.get(AppConstants.EMERGENCY_PHONE);
+        if (ph != null && adminPhone != null && adminPhone.contains(","+ph.trim()+",")) {
+            return true;
+        }
+        return false;
+    }
+
     private boolean isAdminPhone(String ph) {
-        String adminPhone = PersonalConstants.get(EMERGENCY_PHONE);
-        if (adminPhone != null && adminPhone.contains(","+ph.trim()+",")) {
+        String adminPhone = PersonalConstants.get(ADMIN_PHONE);
+        if (ph != null && adminPhone != null && adminPhone.equals(ph)) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isAdminCallProfileAll(String ph) {
+        String adminPhone = PersonalConstants.get(AppConstants.ADMIN_PHONE_PROFILE_ALL);
+        if (ph != null && adminPhone != null && adminPhone.equals(ph)) {
             return true;
         }
         return false;

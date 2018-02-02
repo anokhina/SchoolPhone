@@ -22,30 +22,43 @@ import android.media.AudioManager;
 public class AudioUtil {
     public static int getSMSCallVol(Context ctx) {
         AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
-        return am.getStreamVolume(AudioManager.STREAM_NOTIFICATION);
+        int vol = am.getStreamVolume(AudioManager.STREAM_NOTIFICATION);
+        //System.err.println("+++++++++>" + vol);
+        return vol;
     }
     public static void setSMSCallVol(Context ctx, int vol) {
+        setVol(ctx, vol, AudioManager.STREAM_NOTIFICATION);
+    }
+    public static void setVol(Context ctx, int vol, int streamType) {
+        //System.err.println("+++++++++>>" + vol);
+
         AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
-        am.setStreamVolume(AudioManager.STREAM_NOTIFICATION,
-                vol,
-                0);
+        int currentVol = am.getStreamVolume(streamType);
+        if (currentVol != vol) {
+            am.setStreamVolume(streamType, vol, 0);
+        }
     }
     public static void setSMSCallVolume(Context ctx, int pct) {
+        setVolume(ctx, pct, AudioManager.STREAM_NOTIFICATION);
+    }
+    public static void setVolume(Context ctx, int pct, int streamType) {
         AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+        int currentVol = am.getStreamVolume(streamType);
 
         int vol = 0;
-        int maxVol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
+        int maxVol = am.getStreamMaxVolume(streamType);
         if (pct < 0) pct = 0;
         if (pct > 100) pct = 100;
         if (pct == 100) {
-            vol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
+            vol = am.getStreamMaxVolume(streamType);
         } else if (pct == 0) {
             vol = 0;
         } else {
-            vol = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION) * pct / 100;
+            vol = maxVol * pct / 100;
         }
-        am.setStreamVolume(AudioManager.STREAM_NOTIFICATION,
-                vol,
-                0);
+        //System.err.println("++++>>>>>>>"+vol+":"+maxVol);
+        if (currentVol != vol) {
+            am.setStreamVolume(streamType, vol, 0);
+        }
     }
 }

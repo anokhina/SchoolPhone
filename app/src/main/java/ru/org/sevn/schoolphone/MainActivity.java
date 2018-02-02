@@ -54,8 +54,8 @@ import ru.org.sevn.schoolphone.andr.IOUtil;
 
 public class MainActivity extends FragmentActivity {
 
-    static final String PROFILE_SCHOOL = "_school";
-    static final String PROFILE_ALL = "_school1";
+    public static final String PROFILE_SCHOOL = "_school";
+    public static final String PROFILE_ALL = "_school1";
 
     ButtonGridAdapter badapter;
     private String password ="fake"; //TODO encript
@@ -371,18 +371,23 @@ public class MainActivity extends FragmentActivity {
     }
     public void setProfileTo(String txt, boolean noui) {
         if (txt != null) {
-            txt = txt.trim();
-            if (txt.length() > 0 && isAllowedProfile(txt)) {
-                profile = txt;
-                adjustVolume();
-                savePreferencesProfile();
-                restorePreferences();
-                badapter.renew(true);
-                savePreferences(VERSION, true, null);
-            } else {
-                if (noui) {} else {
-                    forbiddenMsg(" set the profile name to " + txt);
+            if (!txt.equals(profile)) {
+                txt = txt.trim();
+                if (txt.length() > 0 && isAllowedProfile(txt)) {
+                    profile = txt;
+                    adjustVolume();
+                    savePreferencesProfile();
+                    restorePreferences();
+                    badapter.renew(true);
+                    savePreferences(VERSION, true, null);
+                } else {
+                    if (noui) {
+                    } else {
+                        forbiddenMsg(" set the profile name to " + txt);
+                    }
                 }
+            } else {
+                adjustVolume();
             }
         }
     }
@@ -521,13 +526,13 @@ public class MainActivity extends FragmentActivity {
     public void saveSettings() {
         //TODO
         callVol = AudioUtil.getSMSCallVol(this);
-        //System.err.println("+++++++++" + callVol);
+        //System.err.println("+++++++++>" + callVol);
     }
     public void restoreSettings() {
         //TODO
         if (callVol >= 0) {
             AudioUtil.setSMSCallVol(this, callVol);
-            //System.err.println("+++++++++>" + callVol);
+            //System.err.println("+++++++++>>" + callVol);
             callVol = -1;
         }
     }

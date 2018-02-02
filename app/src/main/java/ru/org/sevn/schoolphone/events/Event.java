@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-package ru.org.sevn.schoolphone;
+package ru.org.sevn.schoolphone.events;
 
-public class AppConstants {
-    public static final int CELL_WIDTH = 60;
-
-    public static final String ADMIN_PHONE = "adminPhone";
-    public static final String ADMIN_PHONE_PROFILE_ALL = "adminPhoneProfileAll";
-    public static final String EMERGENCY_PHONE = "emergencyPhone";
-
-
+public class Event {
+    private int weekday; // 0 - 6, -1 - none
+    private int timeFromHH; // 0 - 23
+    private int timeFromMM; // 0 - 59
+    private int timeToHH; // 0 - 23
+    private int timeToMM; // 0 - 59
+    private String name;
+    private long alarmBefore; // -1 - none
+    private int year;
+    private int month;
+    private int day;
+    private String profile;
 }
