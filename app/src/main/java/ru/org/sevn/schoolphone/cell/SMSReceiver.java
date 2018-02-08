@@ -52,7 +52,7 @@ public class SMSReceiver extends AppBroadcastReceiver {
                 }
                 String profile = msgBody.substring(idxProf + PROFILE_MSG.length(), nextDelim).trim();
                 if (activity != null) {
-                    activity.setProfileTo(profile, true);
+                    activity.setProfileTo(profile, true, -1);
                 }
                 noForw();
             }

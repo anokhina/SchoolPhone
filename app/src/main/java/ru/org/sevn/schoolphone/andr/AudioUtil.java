@@ -41,10 +41,15 @@ public class AudioUtil {
     public static void setSMSCallVolume(Context ctx, int pct) {
         setVolume(ctx, pct, AudioManager.STREAM_NOTIFICATION);
     }
-    public static void setVolume(Context ctx, int pct, int streamType) {
+    public static int getVolumeFromPctSMSCall(Context ctx, int pct) {
         AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
-        int currentVol = am.getStreamVolume(streamType);
-
+        return getVolumeFromPct(pct, am, AudioManager.STREAM_NOTIFICATION);
+    }
+    public static int getVolumeFromPct(Context ctx, int pct, int streamType) {
+        AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+        return getVolumeFromPct(pct, am, streamType);
+    }
+    public static int getVolumeFromPct(int pct, AudioManager am, int streamType) {
         int vol = 0;
         int maxVol = am.getStreamMaxVolume(streamType);
         if (pct < 0) pct = 0;
@@ -56,6 +61,13 @@ public class AudioUtil {
         } else {
             vol = maxVol * pct / 100;
         }
+        return vol;
+    }
+    public static void setVolume(Context ctx, int pct, int streamType) {
+        AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+        int currentVol = am.getStreamVolume(streamType);
+
+        int vol = getVolumeFromPct(pct, am, streamType);
         //System.err.println("++++>>>>>>>"+vol+":"+maxVol);
         if (currentVol != vol) {
             am.setStreamVolume(streamType, vol, 0);

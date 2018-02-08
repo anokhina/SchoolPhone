@@ -56,6 +56,7 @@ public class AppDetailManager {
         AppDetail app = new AppDetail();
         app.setLabel(ri.loadLabel(manager).toString());
         app.setPackageName(ri.activityInfo.packageName);
+        app.setName(ri.activityInfo.name);
         //ri.activityInfo.applicationInfo.sourceDir;
         //ri.activityInfo.applicationInfo.publicSourceDir;
         //ri.activityInfo.applicationInfo.loadIcon(pm);
@@ -74,6 +75,10 @@ public class AppDetailManager {
         return app;
     }
     public static Intent runApp(Context ctx, AppDetail ad) {
-        return AndrUtil.runApp(ctx, ad.getPackageName());
+        return AndrUtil.runApp(ctx, ad.getPackageName(), ad.getName());
+    }
+
+    public static Intent getIntent2Start(Context ctx, AppDetail ad) {
+        return AndrUtil.getIntent2Start(ctx, ad.getPackageName(), ad.getName());
     }
 }

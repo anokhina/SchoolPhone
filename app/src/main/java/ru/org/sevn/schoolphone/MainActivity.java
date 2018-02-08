@@ -45,6 +45,7 @@ import org.json.JSONException;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Collection;
 
 import ru.org.sevn.schoolphone.andr.AndrUtil;
 import ru.org.sevn.schoolphone.andr.AndrUtilGUI;
@@ -53,7 +54,6 @@ import ru.org.sevn.schoolphone.andr.DialogUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
 
 public class MainActivity extends FragmentActivity {
-
     public static final String PROFILE_SCHOOL = "_school";
     public static final String PROFILE_ALL = "_school1";
 
@@ -61,6 +61,9 @@ public class MainActivity extends FragmentActivity {
     private String password ="fake"; //TODO encript
     private String profile = PROFILE_SCHOOL;
     private ArrayList<String> allowedApps = new ArrayList<>();
+    private ArrayList<String> allowedAppsAnother = new ArrayList<>();
+    private ArrayList<String> killApps = new ArrayList<>();
+    private ArrayList<String> killAppsOther = new ArrayList<>();
 
     private void newPassword() {
         if (isSU()) {
@@ -75,19 +78,29 @@ public class MainActivity extends FragmentActivity {
             });
         }
     }
+    private boolean isInKilled(AppDetail ad) {
+        return killAppsOther.contains(ad.getComponentName());
+    }
     private boolean isInAllowed(AppDetail ad) {
+        return allowedApps.contains(ad.getComponentName());
+    }
+    private boolean isInAllowedPackage(AppDetail ad) {
         return allowedApps.contains(ad.getPackageName());
     }
     private void allow() {
         if (currentAppDetail != null) {
-            allowedApps.add(currentAppDetail.getPackageName());
+            allowedApps.add(currentAppDetail.getComponentName());
+            renewKillApps();
             badapter.invalidate();
             savePreferences(VERSION, true, null);
         }
     }
     private void disable() {
         if (currentAppDetail != null) {
-            allowedApps.remove(currentAppDetail.getPackageName());
+            allowedApps.remove(currentAppDetail.getComponentName());
+            allowedApps.remove(currentAppDetail.getName());
+            allowedApps.remove(currentAppDetail.getPackageName()); //TODO
+            renewKillApps();
             badapter.invalidate();
             savePreferences(VERSION, true, null);
         }
@@ -121,8 +134,14 @@ public class MainActivity extends FragmentActivity {
         }
         return false;
     }
-    private boolean isAllowed(AppDetail ad) {
-        if (allowedApps != null && allowedApps.contains(ad.getPackageName())) {
+    private boolean isAllowedInProfile(AppDetail ad) {//TODO
+        if (allowedApps != null && allowedApps.contains(ad.getName()) || allowedApps.contains(ad.getPackageName()) || allowedApps.contains(ad.getComponentName())) {
+            return true;
+        }
+        return false;
+    }
+    private boolean isAllowed(AppDetail ad) {//TODO
+        if (isAllowedInProfile(ad)) {
             return true;
         }
         return isSU();
@@ -134,11 +153,11 @@ public class MainActivity extends FragmentActivity {
             fl.delete();
         }
     }
-    private String getDefaultAllowedApps(String versionWithPoint, String defValue) {
-        String fileName = EXT_APP_DIR + "allowedApps" + profile + versionWithPoint;
+    private String getDefaultCollection(String collectionName, String versionWithPoint, String defValue) {
+        String fileName = EXT_APP_DIR + collectionName + profile + versionWithPoint;
         File fl = IOUtil.getExternalFile(false, fileName);
         if (!fl.exists() && versionWithPoint.length() > 0) {
-            fileName = EXT_APP_DIR + "allowedApps" + versionWithPoint;
+            fileName = EXT_APP_DIR + collectionName + versionWithPoint;
         }
 
         String defVal = IOUtil.readExt(fileName);
@@ -151,32 +170,46 @@ public class MainActivity extends FragmentActivity {
     }
     //fixExtDir();
     private void restorePreferences() {
-        restorePreferences(getDefaultAllowedApps("", "[]"), false);
-    }
-    private void restorePreferences(String defVal, boolean fromDefault) {
-        SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+        SharedPreferences prefs = getPrivateSharedPreferences();
         if (prefs != null) {
             password = prefs.getString("password", "zzz");
-            String tmpProfile = prefs.getString(PREF_SELECTED_PROFILE, PROFILE_SCHOOL);
-            if (isAllowedProfile(tmpProfile)) {
-                profile = tmpProfile;
-                adjustVolume();
+            restoreProfile(prefs);
+            restoreCollection(profile, "allowedApps", allowedApps, prefs, getDefaultCollection("allowedApps", "", "[]"), false);
+            ArrayList<String> another = new ArrayList<>();
+            String p = PROFILE_ALL;
+            if (PROFILE_ALL.equals(profile)) {
+                p = PROFILE_SCHOOL;
             }
-            String arrStr;
-            if (fromDefault) {
-                arrStr = defVal;
-            } else {
-                arrStr = prefs.getString("allowedApps"+profile, defVal);
+            restoreCollection(p, "allowedApps", allowedAppsAnother, prefs, getDefaultCollection("allowedApps", "", "[]"), false);
+            //restoreCollection(profile, "killApps", killApps, prefs, getDefaultCollection("killApps", "", "[]"), false);
+            renewKillApps();
+        }
+    }
+    private SharedPreferences getPrivateSharedPreferences() {
+        return getPreferences(Context.MODE_PRIVATE);
+    }
+    private void restoreProfile(SharedPreferences prefs) {
+        String tmpProfile = prefs.getString(PREF_SELECTED_PROFILE, PROFILE_SCHOOL);
+        if (isAllowedProfile(tmpProfile)) {
+            profile = tmpProfile;
+            adjustVolume();
+        }
+    }
+    private static void restoreCollection(String profile, String collectionName, Collection<String> collection, SharedPreferences prefs, String defVal, boolean fromDefault) {
+        String arrStr;
+        if (fromDefault) {
+            arrStr = defVal;
+        } else {
+            arrStr = prefs.getString(collectionName+profile, defVal);
+        }
+        try {
+            JSONArray arr = new JSONArray(arrStr);
+            collection.clear();
+            for (int i = 0; i < arr.length(); i++) {
+                collection.add(arr.getString(i));
             }
-            try {
-                JSONArray arr = new JSONArray(arrStr);
-                allowedApps.clear();
-                for (int i = 0; i < arr.length(); i++) {
-                    allowedApps.add(arr.getString(i));
-                }
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
     }
 
@@ -195,12 +228,27 @@ public class MainActivity extends FragmentActivity {
             editor.putString("password", pswd);
         }
         editor.putString(PREF_SELECTED_PROFILE, profile);
-        JSONArray arr = new JSONArray(allowedApps);
+
+        String msg = "";
+        msg += savePrefsCollection("allowedApps", allowedApps, editor, version);
+//        msg += savePrefsCollection("killApps", killApps, editor, version);
+
+        if (async) {
+            editor.apply();
+            AndrUtilGUI.toastLong(this, "Settings are applied." + msg);
+        } else {
+            editor.commit();
+            AndrUtilGUI.toastLong(this, "Settings are committed." + msg);
+        }
+    }
+    private String savePrefsCollection(String collectionName, Collection<String> collection, SharedPreferences.Editor editor, String version) {
+        String mainFileName = EXT_APP_DIR + collectionName + profile;
+        String msg = "";
+        JSONArray arr = new JSONArray(collection);
         boolean saveExt = false;
-        String mainFileName = EXT_APP_DIR + "allowedApps" + profile;
         try {
             String jsonStr = arr.toString(2);
-            editor.putString("allowedApps"+profile, jsonStr);
+            editor.putString(collectionName+profile, jsonStr);
             saveExt = IOUtil.saveExt(mainFileName, jsonStr.getBytes(IOUtil.FILE_ENCODING));
             saveExt = IOUtil.saveExt(mainFileName + "." + version, jsonStr.getBytes(IOUtil.FILE_ENCODING));
         } catch (JSONException e) {
@@ -208,14 +256,9 @@ public class MainActivity extends FragmentActivity {
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }
-
-        if (async) {
-            editor.apply();
-            AndrUtilGUI.toastLong(this, "Settings are applied. Save ext:" + saveExt + ":" + mainFileName);
-        } else {
-            editor.commit();
-            AndrUtilGUI.toastLong(this, "Settings are commited. Save ext:" + saveExt + ":" + mainFileName);
-        }
+        msg += ("Save ext:" + saveExt);
+        msg += (":" + mainFileName);
+        return msg;
     }
 
     @Override
@@ -250,9 +293,16 @@ public class MainActivity extends FragmentActivity {
             public void arrangeButtonView(Context ctx, View convertView, AppDetail ad, TextView appLabel, ImageView appIcon) {
                 if (isAllowed(ad)) {
                     if (isInAllowed(ad)) {
+                        appLabel.setTextColor(Color.BLUE);
+                    } else if (isInAllowedPackage(ad)) {
                         appLabel.setTextColor(Color.GREEN);
                     } else {
                         appLabel.setTextColor(Color.BLACK);
+                    }
+
+                    if (isInKilled(ad)) {
+                        appLabel.setTextColor(Color.RED);
+                        //appLabel.setTypeface(null, Typeface.BOLD);
                     }
                 } else {
                     appLabel.setTextColor(Color.RED);
@@ -263,7 +313,16 @@ public class MainActivity extends FragmentActivity {
                 if (obj instanceof AppDetail) {
                     final AppDetail ad = (AppDetail)obj;
                     if (isAllowed(ad)) {
-                        AppDetailManager.runApp(ctx, ad);
+                        Intent intent = AppDetailManager.getIntent2Start(ctx, ad);
+                        if (intent != null) {
+                            //TODO
+//                            if (PROFILE_SCHOOL.equals(profile) &&
+//                                    isProcess2kill(ad.getComponentName())) {
+//                                intent.setFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+//                            }
+                            ctx.startActivity(intent);
+                        }
+                        //AppDetailManager.runApp(ctx, ad);
                     } else {
                         DialogUtil.alert(MainActivity.this, "Forbidden", "You are not allowed to run " + ad.getLabel(), null);
                     }
@@ -319,6 +378,8 @@ public class MainActivity extends FragmentActivity {
 
         //AlarmUtil.setAlarm(this, AlarmReceiver.POWER_ALARM, 1000*1, 1000*5);
 
+        Intent i = new Intent(this, CheckTopActivityService.class);
+        startService(i);
     }
 
     public static final int CANCEL = 0;
@@ -367,19 +428,23 @@ public class MainActivity extends FragmentActivity {
     private static final String PREF_SELECTED_PROFILE = "profile";
 
     private void setProfileTo(String txt) {
-        setProfileTo(txt, false);
+        setProfileTo(txt, false, -1);
     }
-    public void setProfileTo(String txt, boolean noui) {
+    public int setProfileTo(String txt, boolean noui, int volPctFromCall) {
+        int retVol = -1;
         if (txt != null) {
             if (!txt.equals(profile)) {
                 txt = txt.trim();
                 if (txt.length() > 0 && isAllowedProfile(txt)) {
                     profile = txt;
-                    adjustVolume();
+                    retVol = adjustVolume(volPctFromCall);
                     savePreferencesProfile();
                     restorePreferences();
                     badapter.renew(true);
                     savePreferences(VERSION, true, null);
+                    //if (PROFILE_SCHOOL.equals(profile)) {
+                    //killProcesses();
+                    //}
                 } else {
                     if (noui) {
                     } else {
@@ -387,10 +452,16 @@ public class MainActivity extends FragmentActivity {
                     }
                 }
             } else {
-                adjustVolume();
+                retVol = adjustVolume(volPctFromCall);
             }
         }
+        return retVol;
     }
+
+    boolean isProcess2kill(String name) {
+        return killApps.contains(name);
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
@@ -489,9 +560,10 @@ public class MainActivity extends FragmentActivity {
                     }
                 }
 
-                String restoreStr = getDefaultAllowedApps(txt, null);
+                String restoreStr = getDefaultCollection("allowedApps", txt, null);
                 if (restoreStr != null) {
-                    restorePreferences(restoreStr, true);
+                    restoreCollection(profile, "allowedApps", allowedApps, getPrivateSharedPreferences(), restoreStr, true);
+                    renewKillApps();
                     badapter.renew(true);
                     savePreferences(VERSION, true, null);
                 }
@@ -511,31 +583,78 @@ public class MainActivity extends FragmentActivity {
     @Override
     protected void onDestroy() {
         SELF = null;
+        stopService(new Intent(this, CheckTopActivityService.class));
         super.onDestroy();
     }
 
-    private void adjustVolume() {
+    private int adjustVolume() {
+        return adjustVolume(-1);
+    }
+    private int adjustVolume(int realVolPct) {
+        int setRetVal = 0;
         if (PROFILE_SCHOOL.equals(profile)) {
-            AudioUtil.setSMSCallVolume(this, 0);
         } else {
-            AudioUtil.setSMSCallVolume(this, 100);
+            setRetVal = 100;
         }
+        if (realVolPct >= 0) {
+            AudioUtil.setSMSCallVolume(this, realVolPct);
+        } else {
+            AudioUtil.setSMSCallVolume(this, setRetVal);
+        }
+        return setRetVal;
     }
 
     private int callVol = -1;
     public void saveSettings() {
+        saveSettings(-1);
+    }
+    public void saveSettings(int vol) {
         //TODO
-        callVol = AudioUtil.getSMSCallVol(this);
+        if (vol >= 0) {
+            callVol = vol;
+        } else {
+            callVol = AudioUtil.getSMSCallVol(this);
+        }
         //System.err.println("+++++++++>" + callVol);
     }
     public void restoreSettings() {
-        //TODO
         if (callVol >= 0) {
             AudioUtil.setSMSCallVol(this, callVol);
             //System.err.println("+++++++++>>" + callVol);
             callVol = -1;
         }
     }
+    public String getProfile() {
+        return profile;
+    }
 
     static MainActivity SELF;
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+
+        if (! hasFocus) {
+//            Intent closeDialog = new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
+//            sendBroadcast(closeDialog);
+        }
+    }
+
+    private void renewKillApps() {
+        killApps = getKillApps();
+        killAppsOther = getKillAppsOther();
+    }
+    private ArrayList<String> getKillApps() {
+        ArrayList<String> killApps = new ArrayList<>();
+        killApps.addAll(allowedAppsAnother);
+        killApps.removeAll(allowedApps);
+        return killApps;
+    }
+    private ArrayList<String> getKillAppsOther() {
+        ArrayList<String> killAppsOther = new ArrayList<>();
+        killAppsOther.addAll(allowedApps);
+        killAppsOther.removeAll(allowedAppsAnother);
+        return killAppsOther;
+    }
+
 }

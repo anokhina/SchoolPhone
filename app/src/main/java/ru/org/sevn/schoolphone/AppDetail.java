@@ -17,6 +17,7 @@
 package ru.org.sevn.schoolphone;
 
 import android.appwidget.AppWidgetProviderInfo;
+import android.content.ComponentName;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 
@@ -26,6 +27,7 @@ public class AppDetail {
     private int sortOrder;
     private String label;
     private String packageName;
+    private String name;
     private Drawable icon;
     private boolean widgetFlag;
     private boolean shortcutFlag;
@@ -69,6 +71,9 @@ public class AppDetail {
     public void setLabel(String label) {
         this.label = label;
     }
+    public String getComponentName() {
+        return packageName + "/" + name;
+    }
     public String getPackageName() {
         return packageName;
     }
@@ -96,6 +101,23 @@ public class AppDetail {
     public void setShortcut(ResolveInfo i) {
         setShortcutFlag((i != null));
         setInfo(i);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public AppDetail() {}
+    public AppDetail(ComponentName cname) {
+        this(cname.getPackageName(), cname.getClassName());
+    }
+    public AppDetail(String p, String n) {
+        setPackageName(p);
+        setName(n);
     }
 
 }

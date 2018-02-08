@@ -39,7 +39,6 @@ public class AndrUtil {
     public static Intent getAppIntent(final Context ctx, final String packageName) {
         if (packageName == null) return null;
         PackageManager pm = ctx.getPackageManager();
-
         Intent i = pm.getLaunchIntentForPackage(packageName);
         if (i == null) {
             Intent intent = new Intent();
@@ -51,21 +50,33 @@ public class AndrUtil {
             if(resolveInfos.size() > 0) {
                 ResolveInfo launchable = resolveInfos.get(0);
                 ActivityInfo activity = launchable.activityInfo;
-                ComponentName name=new ComponentName(activity.applicationInfo.packageName,
-                        activity.name);
-                i=new Intent(Intent.ACTION_MAIN);
-
-                i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                        Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                ComponentName name=new ComponentName(activity.applicationInfo.packageName, activity.name);
                 i.setComponent(name);
             }
         }
         return i;
     }
+    public static void setIntentFlags(Intent i) {
+        i=new Intent(Intent.ACTION_MAIN);
+
+        i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+    }
     public static Intent runApp(final Context ctx, final String packageName) {
-        Intent i = getAppIntent(ctx, packageName);
+        return runApp(ctx, packageName, null);
+    }
+    public static Intent runApp(final Context ctx, final String packageName, final String name) {
+        Intent i = getIntent2Start(ctx, packageName, name);
         if (i != null) {
+            setIntentFlags(i);
             ctx.startActivity(i);
+        }
+        return i;
+    }
+    public static Intent getIntent2Start(final Context ctx, final String packageName, final String name) {
+        Intent i = getAppIntent(ctx, packageName);
+        if (name != null) {
+            ComponentName componentName = new ComponentName(packageName, name);
+            i.setComponent(componentName);
         }
         return i;
     }

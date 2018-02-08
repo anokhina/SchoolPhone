@@ -2,27 +2,28 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="ru.org.sevn.schoolphone">
 
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
-
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.PROCESS_INCOMING_CALLS" />
 
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <uses-permission android:name="android.permission.GET_TASKS" />
     <!-- not used -->
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
     <!--
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE"/>
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     -->
-
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -30,7 +31,16 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <activity android:name=".cell.SOSActivity"
+            android:label="SOS"
+            android:taskAffinity=".cell.SOSActivity"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity android:name=".MainActivity"
             android:label="@string/app_name"
             android:theme="@style/AppThemeNoTitle"
@@ -38,6 +48,7 @@
             android:clearTaskOnLaunch="true"
             android:stateNotNeeded="true"
             android:screenOrientation="portrait"
+            android:taskAffinity=".MainActivity"
             >
             <intent-filter android:priority="2">
                 <action android:name="android.intent.action.MAIN" />
@@ -103,7 +114,6 @@
                 <action android:name="android.intent.action.ACTION_BATTERY_OKAY" />
                 <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
                 <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
-
             </intent-filter>
         </receiver>
         <receiver android:name=".NotificationReceiver"
@@ -112,6 +122,8 @@
                 <action android:name="ru.org.sevn.schoolphone.MAIN_NOTE" />
             </intent-filter>
         </receiver>
+
+        <service android:enabled="true" android:name=".CheckTopActivityService" />
 
     </application>
 

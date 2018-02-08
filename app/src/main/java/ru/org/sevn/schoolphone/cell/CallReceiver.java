@@ -78,6 +78,7 @@ public class CallReceiver extends AppBroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent){
+        if (getMainActivity() == null) return;
         String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
 
         String phoneKey = TelephonyManager.EXTRA_INCOMING_NUMBER;
@@ -89,16 +90,22 @@ public class CallReceiver extends AppBroadcastReceiver {
 //            String phoneNumber = intent.getStringExtra(phoneKey);
         } else
         if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
+            boolean isEmergency = isEmergencyCall(phoneNumber);
+            int saveVolPct = -1;
             if (isAdminCallProfileAll(phoneNumber)) {
-                getMainActivity().setProfileTo(MainActivity.PROFILE_ALL, true);
+                saveVolPct = getMainActivity().setProfileTo(MainActivity.PROFILE_ALL, true, 100);
             } else
             if (isAdminPhone(phoneNumber)) {
-                getMainActivity().setProfileTo(MainActivity.PROFILE_SCHOOL, true);
+                saveVolPct = getMainActivity().setProfileTo(MainActivity.PROFILE_SCHOOL, true, 100);
             }
 
-            if (isEmergencyCall(phoneNumber)) {
-                getMainActivity().saveSettings();
-                AudioUtil.setSMSCallVolume(context, 100);
+            if (isEmergency) {
+                if (saveVolPct >= 0) {
+                    getMainActivity().saveSettings(AudioUtil.getVolumeFromPctSMSCall(context, saveVolPct));
+                } else {
+                    getMainActivity().saveSettings();
+                    AudioUtil.setSMSCallVolume(context, 100);
+                }
             }
         } else
         if (TelephonyManager.EXTRA_STATE_IDLE.equals(state)) {

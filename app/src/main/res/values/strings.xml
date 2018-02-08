@@ -18,8 +18,8 @@
 
     <string name="app_name">SchoolPhone</string>
     <string name="title_activity_groups">Groups</string>
-    
-    
+
+
     <string name="hello_world">Hello world!</string>
 
     <string name="action_settings">Settings</string>
@@ -30,10 +30,10 @@
     <string name="action_groups">Groups</string>
     <string name="action_add_shcut">Add Shortcut</string>
     <string name="title_activity_app">AppActivity</string>
-    
+
     <string name="action_group_new">New</string>
     <string name="action_group_del">Delete</string>
-    
+
     <string name="new_group_name">new group name</string>
     <string name="new_group_title">Add a group</string>
     <string name="new_group_msg">Enter group name</string>
