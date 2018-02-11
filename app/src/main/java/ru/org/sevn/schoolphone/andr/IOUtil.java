@@ -65,18 +65,21 @@ public class IOUtil {
         return null;
     }
     public static boolean saveExt(String fileName, byte[] fileData) {
+        return saveExt(fileName, fileData, false);
+    }
+    public static boolean saveExt(String fileName, byte[] fileData, boolean append) {
         File fl = getExternalFile(true, fileName);
         if (fl != null) {
-            return save(prepareParent(fl), fileData);
+            return save(prepareParent(fl), fileData, append);
         }
         return false;
     }
-    public static boolean save(File file2write, byte[] fileData) {
+    public static boolean save(File file2write, byte[] fileData, boolean append) {
 
         boolean isFileSaved = false;
         FileOutputStream fos = null;
         try {
-            fos = new FileOutputStream(file2write);
+            fos = new FileOutputStream(file2write, append);
             fos.write(fileData);
             fos.flush();
             isFileSaved = true;

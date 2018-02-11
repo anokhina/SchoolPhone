@@ -127,7 +127,7 @@ public class MainActivity extends FragmentActivity {
         */
     }
 
-    private boolean isSU() {
+    public boolean isSU() {
         final EditText editTextPassword = (EditText) findViewById(R.id.editText);
         if (password !=null) {
             return password.equals(editTextPassword.getText().toString());
@@ -156,7 +156,7 @@ public class MainActivity extends FragmentActivity {
     private String getDefaultCollection(String collectionName, String versionWithPoint, String defValue) {
         String fileName = EXT_APP_DIR + collectionName + profile + versionWithPoint;
         File fl = IOUtil.getExternalFile(false, fileName);
-        if (!fl.exists() && versionWithPoint.length() > 0) {
+        if (fl != null && !fl.exists() && versionWithPoint.length() > 0) {
             fileName = EXT_APP_DIR + collectionName + versionWithPoint;
         }
 
@@ -215,6 +215,8 @@ public class MainActivity extends FragmentActivity {
 
     public static String VERSION = "3";
     public static String EXT_APP_DIR = "ru.org.sevn/schoolphone/";
+    public static String EXT_APP_LOG_DIR = "ru.org.sevn/schoolphone/log/";
+
     private void savePreferencesProfile() {
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
@@ -318,7 +320,8 @@ public class MainActivity extends FragmentActivity {
                             //TODO
 //                            if (PROFILE_SCHOOL.equals(profile) &&
 //                                    isProcess2kill(ad.getComponentName())) {
-//                                intent.setFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+//                                intent.setFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS |
+//                                                Intent.FLAG_ACTIVITY_CLEAR_TOP);
 //                            }
                             ctx.startActivity(intent);
                         }
