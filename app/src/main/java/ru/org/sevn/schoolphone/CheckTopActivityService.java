@@ -55,7 +55,7 @@ public class CheckTopActivityService extends Service {
     private static Timer timer = new Timer();
     private static Timer timerBattery = new Timer();
     private Context ctx;
-    public static final long TIMER_INTERVAL = 1000 * 30;
+    public static final long TIMER_INTERVAL = 1000 * 15;
     public static final long TIMER_INTERVAL_BATTERY = 1000 * 60 * 5;
     public static final long TIMER_INTERVAL_LOCATION = 1000 * 60 * 5;
 
@@ -63,7 +63,6 @@ public class CheckTopActivityService extends Service {
     public static final int HANDLER_BATTERY = 1;
     public static final int HANDLER_LOCATION = 2;
 
-    private Intent batteryStatus;
     private LocationManager locationManager;
 
 
@@ -74,10 +73,13 @@ public class CheckTopActivityService extends Service {
     public void onCreate() {
         super.onCreate();
         ctx = this;
-        batteryStatus = ctx.getApplicationContext().registerReceiver(null,
-                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         startService();
+    }
+
+    private Intent getBatteryStatus() {
+        return ctx.getApplicationContext().registerReceiver(null,
+                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
     }
 
     static class LocationInfo {
@@ -141,12 +143,19 @@ public class CheckTopActivityService extends Service {
     private void startService() {
         timer.scheduleAtFixedRate(new TimerTask() {
             public void run() {
-                handler.sendEmptyMessage(HANDLER);
+                //handler.sendEmptyMessage(HANDLER);
+                handleActivityTop();
             }
         }, 0, TIMER_INTERVAL);
         timerBattery.scheduleAtFixedRate(new TimerTask() {
             public void run() {
-                handler.sendEmptyMessage(HANDLER_BATTERY);
+                Date d = new Date();
+                Intent batteryStatus = getBatteryStatus();
+                int pct = BatteryUtil.getPercentLevel(batteryStatus);
+                String msg = "" + getDateString(d) + " : " + BatteryUtil.isCharging(batteryStatus) + " " + pct + "% " + "\n\n";
+
+                //Log.d("battery", msg);
+                handler.sendMessage(handler.obtainMessage(HANDLER_BATTERY, new Object[] {d, msg} ));
             }
         }, 0, TIMER_INTERVAL_BATTERY);
 
@@ -154,25 +163,33 @@ public class CheckTopActivityService extends Service {
             @Override
             public void onLocationChanged(Location location) {
                 locationInfo.setLocation(location);
-                handler.sendEmptyMessage(HANDLER_LOCATION);
+                sendLocation();
             }
 
             @Override
             public void onStatusChanged(String provider, int status, Bundle extras) {
                 locationInfo.getStatuses().put(provider, status);
-                handler.sendEmptyMessage(HANDLER_LOCATION);
+                sendLocation();
             }
 
             @Override
             public void onProviderEnabled(String provider) {
                 locationInfo.getEnabledProviders().add(provider);
-                handler.sendEmptyMessage(HANDLER_LOCATION);
+                sendLocation();
             }
 
             @Override
             public void onProviderDisabled(String provider) {
                 locationInfo.getEnabledProviders().remove(provider);
-                handler.sendEmptyMessage(HANDLER_LOCATION);
+                sendLocation();
+            }
+            private void sendLocation() {
+                Date d = new Date();
+                String msg = "" + getDateString(d) + " : " + locationInfo.toString() + "\n\n";
+
+                //Log.d("location", msg);
+
+                handler.sendMessage(handler.obtainMessage(HANDLER_LOCATION, new Object[] {d, msg}));
             }
         };
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -216,7 +233,7 @@ public class CheckTopActivityService extends Service {
         if (activityManager != null && mactivity != null) {
             ComponentName cname = activityManager.getRunningTasks(1).get(0).topActivity;
             ad = new AppDetail(cname);
-            if (mactivity.isProcess2kill(ad.getComponentName()) && mactivity.isSU()) {
+            if (mactivity.isProcess2kill(ad.getComponentName()) && !mactivity.isSU()) {
                 activityManager.moveTaskToFront(mactivity.getTaskId(), 0);
             }
         }
@@ -224,13 +241,7 @@ public class CheckTopActivityService extends Service {
 //                    "test->"+((ad == null) ? "" : ad.getComponentName()),
 //                    Toast.LENGTH_SHORT).show();
     }
-    private void handleBattery() {
-        Date d = new Date();
-        int pct = BatteryUtil.getPercentLevel(batteryStatus);
-        String msg = "" + getDateString(d) + " : " + BatteryUtil.isCharging(batteryStatus) + " " + pct + "% " + "\n";
-
-        //Log.d("battery", msg);
-
+    private void handleBattery(Date d, String msg) {
         String mainFileName = MainActivity.EXT_APP_LOG_DIR + "b-"+getDateDayString(d);
         try {
             IOUtil.saveExt(mainFileName, msg.getBytes(IOUtil.FILE_ENCODING), true);
@@ -238,12 +249,7 @@ public class CheckTopActivityService extends Service {
             e.printStackTrace();
         }
     }
-    private void handleLocation() {
-        Date d = new Date();
-        String msg = "" + getDateString(d) + " : " + locationInfo.toString() + "\n";
-
-        //Log.d("location", msg);
-
+    private void handleLocation(Date d, String msg) {
         String mainFileName = MainActivity.EXT_APP_LOG_DIR + "l-"+getDateDayString(d);
         try {
             IOUtil.saveExt(mainFileName, msg.getBytes(IOUtil.FILE_ENCODING), true);
@@ -267,16 +273,24 @@ public class CheckTopActivityService extends Service {
         public void handleMessage(android.os.Message msg) {
             switch (msg.what) {
                 case HANDLER:
-                    handleActivityTop();
+                    //handleActivityTop();
                     break;
-                case HANDLER_BATTERY:
-                    handleBattery();
+                case HANDLER_BATTERY: {
+                    Object[] arr = (Object[]) msg.obj;
+                    handleBattery((Date) arr[0], (String) arr[1]);
+                }
                     break;
-                case HANDLER_LOCATION:
-                    handleLocation();
+                case HANDLER_LOCATION: {
+                    Object[] arr = (Object[]) msg.obj;
+                    handleLocation((Date) arr[0], (String) arr[1]);
+                }
                     break;
             }
 
         }
     };
+
+    private void sendData() {
+        //GMailSender sender = new GMailSender
+    }
 }
