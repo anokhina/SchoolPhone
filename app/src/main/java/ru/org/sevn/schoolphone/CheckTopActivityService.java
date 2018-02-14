@@ -19,7 +19,9 @@ package ru.org.sevn.schoolphone;
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlarmManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -48,13 +50,15 @@ import java.util.HashSet;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import ru.org.sevn.schoolphone.andr.AlarmUtil;
 import ru.org.sevn.schoolphone.andr.BatteryUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
 
 public class CheckTopActivityService extends Service {
-    private static Timer timer = new Timer();
-    private static Timer timerBattery = new Timer();
+    private Timer timer = new Timer();
+    private BroadcastReceiver alarmReceiver;
     private Context ctx;
+
     public static final long TIMER_INTERVAL = 1000 * 15;
     public static final long TIMER_INTERVAL_BATTERY = 1000 * 60 * 5;
     public static final long TIMER_INTERVAL_LOCATION = 1000 * 60 * 5;
@@ -140,6 +144,15 @@ public class CheckTopActivityService extends Service {
     private LocationInfo locationInfo = new LocationInfo();
     private LocationListener locationListener;
 
+    private void sendBatteryMessage() {
+        Date d = new Date();
+        Intent batteryStatus = getBatteryStatus();
+        int pct = BatteryUtil.getPercentLevel(batteryStatus);
+        String msg = "" + getDateString(d) + " : " + BatteryUtil.isCharging(batteryStatus) + " " + pct + "% " + "\n\n";
+
+        //Log.d("battery", msg);
+        handler.sendMessage(handler.obtainMessage(HANDLER_BATTERY, new Object[] {d, msg} ));
+    }
     private void startService() {
         timer.scheduleAtFixedRate(new TimerTask() {
             public void run() {
@@ -147,17 +160,18 @@ public class CheckTopActivityService extends Service {
                 handleActivityTop();
             }
         }, 0, TIMER_INTERVAL);
-        timerBattery.scheduleAtFixedRate(new TimerTask() {
-            public void run() {
-                Date d = new Date();
-                Intent batteryStatus = getBatteryStatus();
-                int pct = BatteryUtil.getPercentLevel(batteryStatus);
-                String msg = "" + getDateString(d) + " : " + BatteryUtil.isCharging(batteryStatus) + " " + pct + "% " + "\n\n";
-
-                //Log.d("battery", msg);
-                handler.sendMessage(handler.obtainMessage(HANDLER_BATTERY, new Object[] {d, msg} ));
-            }
-        }, 0, TIMER_INTERVAL_BATTERY);
+        alarmReceiver = AlarmUtil.setAlarm(this,
+                AlarmManager.RTC,
+                "ru.org.sevn.schoolphone.battery",
+                new AlarmUtil.AlarmReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent, BroadcastReceiver receiver) {
+                        sendBatteryMessage();
+                    }
+                },
+                -1,
+                TIMER_INTERVAL_BATTERY
+                );
 
         locationListener = new LocationListener() {
             @Override
@@ -222,7 +236,9 @@ public class CheckTopActivityService extends Service {
     public void onDestroy() {
         if (locationManager != null && locationListener != null) locationManager.removeUpdates(locationListener);
         if (timer != null) timer.cancel();
-        if (timerBattery != null) timerBattery.cancel();
+        if (alarmReceiver != null) {
+            unregisterReceiver(alarmReceiver);
+        }
         super.onDestroy();
     }
 
