@@ -23,5 +23,11 @@ public class AppConstants {
     public static final String ADMIN_PHONE_PROFILE_ALL = "adminPhoneProfileAll";
     public static final String EMERGENCY_PHONE = "emergencyPhone";
 
+    public static final String MAIL_FROM = "mailFrom";
+    public static final String MAIL_FROM_USER = "mailFromUser";
+    public static final String MAIL_FROM_PSWD = "mailFromPswd";
+    public static final String MAIL_TO = "mailTo";
+
+    public static final String ACTION_EMERGENCY_CALL_IN = "ru.org.sevn.schoolphone.EMERGENCY_CALL_IN";
 
 }

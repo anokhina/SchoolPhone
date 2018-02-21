@@ -30,13 +30,12 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.v4.app.ActivityCompat;
-import android.util.Log;
-import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -53,19 +52,32 @@ import java.util.TimerTask;
 import ru.org.sevn.schoolphone.andr.AlarmUtil;
 import ru.org.sevn.schoolphone.andr.BatteryUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
+import ru.org.sevn.schoolphone.mail.MailSenderUtil;
 
+//https://www.google.com/maps/?q=55.753786,37.619988
+//http://maps.google.com/?q=<lat>,<lng>
+//geo:<lat>,<lng>?z=<zoom>
+
+//https://maps.yandex.ru/?ll=37.619988,55.753786&spn=2.124481,0.671008&z=14&l=map&pt=37.619988,55.753786,pmrdm1
 public class CheckTopActivityService extends Service {
     private Timer timer = new Timer();
     private BroadcastReceiver alarmReceiver;
+    private BroadcastReceiver broadcastReceiver;
     private Context ctx;
 
     public static final long TIMER_INTERVAL = 1000 * 15;
     public static final long TIMER_INTERVAL_BATTERY = 1000 * 60 * 5;
     public static final long TIMER_INTERVAL_LOCATION = 1000 * 60 * 5;
 
+    public static final int LOW_BATTERY_PCT = 20;
+
     public static final int HANDLER = 0;
     public static final int HANDLER_BATTERY = 1;
     public static final int HANDLER_LOCATION = 2;
+    public static final int HANDLER_STATE = 3;
+
+    public static final double LATITUDE_DELTA = 0.001;
+    public static final double LONGITUDE_DELTA = 0.001;
 
     private LocationManager locationManager;
 
@@ -99,8 +111,10 @@ public class CheckTopActivityService extends Service {
             return location;
         }
 
-        public void setLocation(Location location) {
+        public Location setLocation(Location location) {
+            Location prevLocation = this.location;
             this.location = location;
+            return prevLocation;
         }
 
         public HashMap<String, Integer> getStatuses() {
@@ -111,7 +125,13 @@ public class CheckTopActivityService extends Service {
             ret.put("enabledProviders", new JSONArray(enabledProviders));
 
             if (location != null) {
+                String googleLL = "" + location.getLatitude() + "," + location.getLongitude();
+                String yandexLL = "" + location.getLongitude() + "," + location.getLatitude();
+                String googleUrl = "https://www.google.com/maps/?q=" + googleLL;
+                String yandexUrl = "https://maps.yandex.ru/?ll="+yandexLL+"&spn=2.124481,0.671008&z=14&l=map&pt="+yandexLL+",pmrdm1";
                 JSONObject jlocation = new JSONObject();
+                jlocation.put("googleUrl", googleUrl);
+                jlocation.put("yandexUrl", yandexUrl);
                 jlocation.put("Provider", location.getProvider());
                 jlocation.put("Latitude", location.getLatitude());
                 jlocation.put("Longitude", location.getLongitude());
@@ -133,6 +153,13 @@ public class CheckTopActivityService extends Service {
             ret.put("statuses", jstatuses);
             return ret;
         }
+        public String toString(int n) {
+            try {
+                return toJson().toString(2);
+            } catch (JSONException e) {
+                return super.toString();
+            }
+        }
         public String toString() {
             try {
                 return toJson().toString();
@@ -144,16 +171,113 @@ public class CheckTopActivityService extends Service {
     private LocationInfo locationInfo = new LocationInfo();
     private LocationListener locationListener;
 
+    static class State {
+        private Date date;
+        private int battery;
+
+        public Date getDate() {
+            return date;
+        }
+
+        public synchronized void setDate(Date date) {
+            this.date = date;
+        }
+
+        public int getBattery() {
+            return battery;
+        }
+
+        public synchronized void setBattery(int battery) {
+            this.battery = battery;
+        }
+
+        public JSONObject toJson() throws JSONException {
+            JSONObject ret = new JSONObject();
+            ret.put("battery", battery);
+            if (date != null) {
+                ret.put("dateString", getDateString(date.getTime()));
+                ret.put("date", date.getTime());
+            }
+            return ret;
+        }
+
+        public String toString() {
+            try {
+                return toJson().toString(2);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return super.toString();
+            }
+        }
+
+    }
+    private State state = new State();
     private void sendBatteryMessage() {
         Date d = new Date();
         Intent batteryStatus = getBatteryStatus();
         int pct = BatteryUtil.getPercentLevel(batteryStatus);
+        state.setDate(d);
+        state.setBattery(pct);
         String msg = "" + getDateString(d) + " : " + BatteryUtil.isCharging(batteryStatus) + " " + pct + "% " + "\n\n";
 
         //Log.d("battery", msg);
         handler.sendMessage(handler.obtainMessage(HANDLER_BATTERY, new Object[] {d, msg} ));
+        if (pct < LOW_BATTERY_PCT) {
+            handler.sendMessage(
+                    handler.obtainMessage(
+                            HANDLER_STATE,
+                            new Object[] {d, getStateMessage("LOW BATTERY"), getStateMessageSubject("LOW BATTERY")} ));
+        }
+    }
+    private String getStateMessageSubject(String cause) {
+        String locationLnk = "";
+        Location l = locationInfo.getLocation();
+        if (l != null) {
+            locationLnk = l.getLatitude() + "," + l.getLongitude();
+        }
+        return cause + ": " + state.getBattery() + "% " + locationLnk + "\n";
+    }
+    private String getStateMessage(String cause) {
+        String locationLnk = "";
+        try {
+            JSONObject jsonLocationDsc = locationInfo.toJson();
+            if (jsonLocationDsc.has("location")) {
+                JSONObject jsonLocation = jsonLocationDsc.getJSONObject("location");
+                if (jsonLocation.has("googleUrl")) {
+                    String url = jsonLocation.optString("googleUrl");
+                    locationLnk += (" " + url);
+                }
+                if (jsonLocation.has("yandexUrl")) {
+                    String url = jsonLocation.optString("yandexUrl");
+                    locationLnk += (" " + url);
+                }
+            }
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return cause + ": " + state.toString() + " " + locationInfo.toString(2) + " "+locationLnk + "\n";
     }
     private void startService() {
+        broadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (AppConstants.ACTION_EMERGENCY_CALL_IN.equals(intent.getAction())) {
+                    handler.sendMessage(
+                            handler.obtainMessage(
+                                    HANDLER_STATE,
+                                    new Object[]{
+                                            new Date(),
+                                            getStateMessage("EMERGENCY CALL IN"),
+                                            getStateMessageSubject("EMERGENCY CALL IN")
+                                    }));
+                }
+            }
+        };
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(AppConstants.ACTION_EMERGENCY_CALL_IN);
+        this.registerReceiver( broadcastReceiver, intentFilter );
+
         timer.scheduleAtFixedRate(new TimerTask() {
             public void run() {
                 //handler.sendEmptyMessage(HANDLER);
@@ -176,8 +300,29 @@ public class CheckTopActivityService extends Service {
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
-                locationInfo.setLocation(location);
+                Location prevLocation = locationInfo.setLocation(location);
                 sendLocation();
+                boolean sendIt = false;
+                if (prevLocation != null) {
+                    if (Math.abs(prevLocation.getLatitude() - location.getLatitude()) > LATITUDE_DELTA ) {
+                        sendIt = true;
+                    }
+                    if (Math.abs(prevLocation.getLongitude() - location.getLongitude()) > LONGITUDE_DELTA ) {
+                        sendIt = true;
+                    }
+                } else {
+                    sendIt = true;
+                }
+                if (sendIt) {
+                    handler.sendMessage(
+                            handler.obtainMessage(
+                                    HANDLER_STATE,
+                                    new Object[]{
+                                            new Date(),
+                                            getStateMessage("LOCATION CHANGED"),
+                                            getStateMessageSubject("LOCATION CHANGED")
+                                    }));
+                }
             }
 
             @Override
@@ -234,6 +379,9 @@ public class CheckTopActivityService extends Service {
     }
 
     public void onDestroy() {
+        if (broadcastReceiver != null) {
+            unregisterReceiver(broadcastReceiver);
+        }
         if (locationManager != null && locationListener != null) locationManager.removeUpdates(locationListener);
         if (timer != null) timer.cancel();
         if (alarmReceiver != null) {
@@ -263,6 +411,38 @@ public class CheckTopActivityService extends Service {
             IOUtil.saveExt(mainFileName, msg.getBytes(IOUtil.FILE_ENCODING), true);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
+        }
+    }
+
+    static class SendStateTask extends AsyncTask<String, Void, Exception> {
+        private final Context ctx;
+        public SendStateTask(Context c) {
+            this.ctx = c;
+        }
+        @Override
+        protected Exception doInBackground(String... params) {
+            try {
+                if (params.length > 2) {
+                    sendState(params[0], params[1], params[2]);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return e;
+            }
+            return null;
+        }
+        private void sendState(final String msg, final String locationInfoStr, final String extraSubj) {
+            if (MailSenderUtil.isOnline(ctx)) {
+                String fullMsg = msg + locationInfoStr;
+                MailSenderUtil.sendMail(
+                        PersonalConstants.get(AppConstants.MAIL_FROM_USER),
+                        PersonalConstants.get(AppConstants.MAIL_FROM_PSWD),
+                        PersonalConstants.get(AppConstants.MAIL_FROM),
+                        PersonalConstants.get(AppConstants.MAIL_TO),
+                        "school_phone_state " + extraSubj,
+                        fullMsg
+                );
+            }
         }
     }
     private void handleLocation(Date d, String msg) {
@@ -301,12 +481,23 @@ public class CheckTopActivityService extends Service {
                     handleLocation((Date) arr[0], (String) arr[1]);
                 }
                     break;
+                case HANDLER_STATE: {
+                    Object[] arr = (Object[]) msg.obj;
+                    try {
+                        if (arr.length > 2) {
+                            new SendStateTask(ctx).execute(
+                                    getDateString((Date) arr[0]) + " ",
+                                    (String) arr[1],
+                                    (String) arr[2]
+                            );
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                break;
             }
 
         }
     };
-
-    private void sendData() {
-        //GMailSender sender = new GMailSender
-    }
 }

@@ -106,6 +106,7 @@ public class CallReceiver extends AppBroadcastReceiver {
                     getMainActivity().saveSettings();
                     AudioUtil.setSMSCallVolume(context, 100);
                 }
+                context.sendBroadcast(new Intent(AppConstants.ACTION_EMERGENCY_CALL_IN));
             }
         } else
         if (TelephonyManager.EXTRA_STATE_IDLE.equals(state)) {
