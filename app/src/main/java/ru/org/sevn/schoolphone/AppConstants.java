@@ -29,5 +29,8 @@ public class AppConstants {
     public static final String MAIL_TO = "mailTo";
 
     public static final String ACTION_EMERGENCY_CALL_IN = "ru.org.sevn.schoolphone.EMERGENCY_CALL_IN";
+    public static final String ACTION_SOS= "ru.org.sevn.schoolphone.SOS";
 
+    public static final String CLIENT_ID = "clientId";
+    public static final String MOBILE_DATA = "mobileData";
 }

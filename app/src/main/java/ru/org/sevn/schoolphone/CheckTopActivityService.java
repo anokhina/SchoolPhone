@@ -27,14 +27,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.database.ContentObserver;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 
 import org.json.JSONArray;
@@ -52,7 +55,9 @@ import java.util.TimerTask;
 import ru.org.sevn.schoolphone.andr.AlarmUtil;
 import ru.org.sevn.schoolphone.andr.BatteryUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
+import ru.org.sevn.schoolphone.connections.ConnectionUtil;
 import ru.org.sevn.schoolphone.mail.MailSenderUtil;
+import ru.org.sevn.schoolphone.connections.MobileDataUtil;
 
 //https://www.google.com/maps/?q=55.753786,37.619988
 //http://maps.google.com/?q=<lat>,<lng>
@@ -81,6 +86,17 @@ public class CheckTopActivityService extends Service {
 
     private LocationManager locationManager;
 
+    ContentObserver contentObserverMobileData = new ContentObserver(new Handler()) {
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+//            int mobileDataEnabled = MobileDataUtil.isMobileDataEnabled(ctx);
+//            System.err.println("=========="+selfChange+":"+uri+":"+ mobileDataEnabled);
+//            if (mobileDataEnabled == 0) {
+//                int setMobile = MobileDataUtil.setMobileDataEnabled(ctx, true);
+//                System.err.println("=========="+selfChange+":"+uri+":"+ mobileDataEnabled+":"+setMobile);
+//            }
+        }
+    };
 
     public IBinder onBind(Intent intent) {
         return null;
@@ -259,9 +275,16 @@ public class CheckTopActivityService extends Service {
         return cause + ": " + state.toString() + " " + locationInfo.toString(2) + " "+locationLnk + "\n";
     }
     private void startService() {
+        Uri mobileDataSettingUri = Settings.Secure.getUriFor("mobile_data");
+        getApplicationContext()
+                .getContentResolver()
+                .registerContentObserver(mobileDataSettingUri, true,
+                        contentObserverMobileData);
+
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+
                 if (AppConstants.ACTION_EMERGENCY_CALL_IN.equals(intent.getAction())) {
                     handler.sendMessage(
                             handler.obtainMessage(
@@ -271,11 +294,22 @@ public class CheckTopActivityService extends Service {
                                             getStateMessage("EMERGENCY CALL IN"),
                                             getStateMessageSubject("EMERGENCY CALL IN")
                                     }));
+                } else if (AppConstants.ACTION_SOS.equals(intent.getAction())) {
+                    handler.sendMessage(
+                            handler.obtainMessage(
+                                    HANDLER_STATE,
+                                    new Object[]{
+                                            new Date(),
+                                            getStateMessage("SOS"),
+                                            getStateMessageSubject("SOS")
+                                    }));
                 }
             }
         };
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(AppConstants.ACTION_EMERGENCY_CALL_IN);
+        intentFilter.addAction(AppConstants.ACTION_SOS);
+        //intentFilter.addAction("another action");
         this.registerReceiver( broadcastReceiver, intentFilter );
 
         timer.scheduleAtFixedRate(new TimerTask() {
@@ -379,6 +413,7 @@ public class CheckTopActivityService extends Service {
     }
 
     public void onDestroy() {
+        getContentResolver().unregisterContentObserver(contentObserverMobileData);
         if (broadcastReceiver != null) {
             unregisterReceiver(broadcastReceiver);
         }
@@ -431,17 +466,53 @@ public class CheckTopActivityService extends Service {
             }
             return null;
         }
+        private int tryConnect(boolean isMobileDataEnabled, boolean sleep) {
+            int ret = -1;
+            if ("true".equals(PersonalConstants.get(AppConstants.MOBILE_DATA))) {
+                int mobileDataEnabled = MobileDataUtil.isMobileDataEnabled(ctx);
+                if (isMobileDataEnabled) {
+                    if (mobileDataEnabled == 0) {
+                        ret = MobileDataUtil.setMobileDataEnabled(ctx, isMobileDataEnabled);
+                    }
+                } else {
+                    if (mobileDataEnabled > 0) {
+                        ret = MobileDataUtil.setMobileDataEnabled(ctx, isMobileDataEnabled);
+                    }
+                }
+                if (sleep) {
+                    try {
+                        Thread.currentThread().sleep(3000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            return ret;
+        }
         private void sendState(final String msg, final String locationInfoStr, final String extraSubj) {
-            if (MailSenderUtil.isOnline(ctx)) {
-                String fullMsg = msg + locationInfoStr;
-                MailSenderUtil.sendMail(
-                        PersonalConstants.get(AppConstants.MAIL_FROM_USER),
-                        PersonalConstants.get(AppConstants.MAIL_FROM_PSWD),
-                        PersonalConstants.get(AppConstants.MAIL_FROM),
-                        PersonalConstants.get(AppConstants.MAIL_TO),
-                        "school_phone_state " + extraSubj,
-                        fullMsg
-                );
+            if (!ConnectionUtil.isAirplaneModeOn(ctx)) {
+                boolean isOnLine = MailSenderUtil.isOnline(ctx);
+                int connected = -1;
+                if (!isOnLine) {
+                    connected = tryConnect(true, true);
+                }
+                if (MailSenderUtil.isOnline(ctx)) {
+                    String fullMsg = msg + locationInfoStr;
+                    String mailId = MailSenderUtil.sendMail(
+                            PersonalConstants.get(AppConstants.MAIL_FROM_USER),
+                            PersonalConstants.get(AppConstants.MAIL_FROM_PSWD),
+                            PersonalConstants.get(AppConstants.MAIL_FROM),
+                            PersonalConstants.get(AppConstants.MAIL_TO),
+                            "school_phone_state " + PersonalConstants.get(AppConstants.CLIENT_ID) + " " + extraSubj,
+                            fullMsg
+                    );
+                    //System.err.println("======"+mailId);
+                }
+                if (!isOnLine && connected > 0) {
+                    tryConnect(false, false);
+                }
+            } else {
+                //TODO
             }
         }
     }

@@ -52,6 +52,7 @@ import ru.org.sevn.schoolphone.andr.AndrUtilGUI;
 import ru.org.sevn.schoolphone.andr.AudioUtil;
 import ru.org.sevn.schoolphone.andr.DialogUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
+import ru.org.sevn.schoolphone.connections.ConnectionUtil;
 
 public class MainActivity extends FragmentActivity {
     public static final String PROFILE_SCHOOL = "_school";
@@ -213,7 +214,7 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
-    public static String VERSION = "3";
+    public static String VERSION = "8";
     public static String EXT_APP_DIR = "ru.org.sevn/schoolphone/";
     public static String EXT_APP_LOG_DIR = "ru.org.sevn/schoolphone/log/";
 
@@ -523,9 +524,15 @@ public class MainActivity extends FragmentActivity {
                 this.badapter.renew(true);
                 return true;
             case R.id.action_clear:
-                final EditText editTextPassword = (EditText) findViewById(R.id.editText);
-                editTextPassword.setText("");
-                this.badapter.renew();
+                if (ConnectionUtil.isAirplaneModeOn(this)) {
+                    ConnectionUtil.setAirPlaneModeOn(this, false);
+                } else {
+                    sendBroadcast(new Intent(AppConstants.ACTION_SOS));
+                }
+
+//                final EditText editTextPassword = (EditText) findViewById(R.id.editText);
+//                editTextPassword.setText("");
+//                this.badapter.renew();
                 return true;
         }
         return super.onOptionsItemSelected(item);

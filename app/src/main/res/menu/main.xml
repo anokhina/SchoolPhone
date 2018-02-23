@@ -36,7 +36,7 @@
     <item
         android:id="@+id/action_clear"
         android:orderInCategory="500"
-        android:title="X"
+        android:title="SOS"
         app:showAsAction="never"/>
 
 </menu>
