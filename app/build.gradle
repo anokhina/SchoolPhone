@@ -7,8 +7,8 @@ android {
         applicationId "ru.org.sevn.schoolphone"
         minSdkVersion 15
         targetSdkVersion 25
-        versionCode 8
-        versionName "1.8"
+        versionCode 9
+        versionName "1.9"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
     }

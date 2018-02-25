@@ -20,6 +20,7 @@ public class AppConstants {
     public static final int CELL_WIDTH = 60;
 
     public static final String ADMIN_PHONE = "adminPhone";
+    public static final String SOS_PHONE = "sosPhone";
     public static final String ADMIN_PHONE_PROFILE_ALL = "adminPhoneProfileAll";
     public static final String EMERGENCY_PHONE = "emergencyPhone";
 
@@ -29,6 +30,8 @@ public class AppConstants {
     public static final String MAIL_TO = "mailTo";
 
     public static final String ACTION_EMERGENCY_CALL_IN = "ru.org.sevn.schoolphone.EMERGENCY_CALL_IN";
+    public static final String ACTION_CALL_OUT = "ru.org.sevn.schoolphone.CALL_OUT";
+    public static final String ACTION_CALL_IDLE = "ru.org.sevn.schoolphone.CALL_IDLE";
     public static final String ACTION_SOS= "ru.org.sevn.schoolphone.SOS";
 
     public static final String CLIENT_ID = "clientId";

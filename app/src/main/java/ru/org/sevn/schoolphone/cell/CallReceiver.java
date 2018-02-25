@@ -86,8 +86,10 @@ public class CallReceiver extends AppBroadcastReceiver {
 
 
         if (Intent.ACTION_NEW_OUTGOING_CALL.equals(intent.getAction())) {
-//            String phoneKey = Intent.EXTRA_PHONE_NUMBER;
-//            String phoneNumber = intent.getStringExtra(phoneKey);
+            phoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
+            Intent i = new Intent(AppConstants.ACTION_CALL_OUT);
+            i.putExtra(Intent.EXTRA_PHONE_NUMBER, phoneNumber);
+            context.sendBroadcast(i);
         } else
         if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
             boolean isEmergency = isEmergencyCall(phoneNumber);
@@ -106,7 +108,12 @@ public class CallReceiver extends AppBroadcastReceiver {
                     getMainActivity().saveSettings();
                     AudioUtil.setSMSCallVolume(context, 100);
                 }
-                context.sendBroadcast(new Intent(AppConstants.ACTION_EMERGENCY_CALL_IN));
+                Intent i = new Intent(AppConstants.ACTION_EMERGENCY_CALL_IN);
+                i.putExtra(Intent.EXTRA_PHONE_NUMBER, phoneNumber);
+                context.sendBroadcast(i);
+            }
+            if (isSOSPhone(phoneNumber)) {
+                context.sendBroadcast(new Intent(AppConstants.ACTION_SOS));
             }
         } else
         if (TelephonyManager.EXTRA_STATE_IDLE.equals(state)) {
@@ -114,13 +121,16 @@ public class CallReceiver extends AppBroadcastReceiver {
         } else
         if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
             getMainActivity().restoreSettings();
+            Intent i = new Intent(AppConstants.ACTION_CALL_IDLE);
+            i.putExtra(Intent.EXTRA_PHONE_NUMBER, phoneNumber);
+            context.sendBroadcast(i);
         }
 
         //int id = getCallNum(phoneNumber);
         //System.err.println("+++++++++++"+state+":"+phoneNumber);
         //new AppNotifier().showCallNotify(id, context,"Call", ""+state+":"+msg);
 //        if (msg != null) {
-//            toast(context, msg, Toast.LENGTH_LONG);
+            toast(context, "+++++++++++"+state+":"+phoneNumber, Toast.LENGTH_LONG);
 //        }
     }
 
@@ -151,6 +161,14 @@ public class CallReceiver extends AppBroadcastReceiver {
     private boolean isAdminPhone(String ph) {
         String adminPhone = PersonalConstants.get(ADMIN_PHONE);
         if (ph != null && adminPhone != null && adminPhone.equals(ph)) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isSOSPhone(String ph) {
+        String adminPhone = PersonalConstants.get(AppConstants.SOS_PHONE);
+        if (ph != null && adminPhone != null && adminPhone.contains(","+ph.trim()+",")) {
             return true;
         }
         return false;

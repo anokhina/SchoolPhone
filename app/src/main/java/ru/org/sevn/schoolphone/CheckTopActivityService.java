@@ -40,6 +40,13 @@ import android.os.IBinder;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 
+import android.telephony.CellLocation;
+import android.telephony.PhoneStateListener;
+import android.telephony.SmsManager;
+import android.telephony.TelephonyManager;
+import android.telephony.cdma.CdmaCellLocation;
+import android.telephony.gsm.GsmCellLocation;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -84,7 +91,64 @@ public class CheckTopActivityService extends Service {
     public static final double LATITUDE_DELTA = 0.001;
     public static final double LONGITUDE_DELTA = 0.001;
 
+    public static final long TIME_MOBILE_DATA_OFF = 1000 * 60 * 14;
     private LocationManager locationManager;
+    private TelephonyManager telephonyManager;
+
+    private PhoneStateListener telephonyListener = new PhoneStateListener(){
+        public double convertQuartSecToDecDegrees(int quartSec) {
+            //from CdmaCellLocation.convertQuartSecToDecDegrees
+            if(Double.isNaN(quartSec) || quartSec < -2592000 || quartSec > 2592000){
+                // Invalid value
+                throw new IllegalArgumentException("Invalid coordiante value:" + quartSec);
+            }
+            return ((double)quartSec) / (3600 * 4);
+        }
+        @Override
+        public void onCellLocationChanged(CellLocation location) {
+            super.onCellLocationChanged(location);
+
+            String networkOperator = telephonyManager.getNetworkOperator();
+            int mcc = -1, mnc = -1;
+            if (networkOperator != null) {
+                try {
+                    mcc = Integer.parseInt(networkOperator.substring(0, 3));
+                    mnc = Integer.parseInt(networkOperator.substring(3));
+                } catch (Exception e) {}
+            }
+
+            int cid = -1;
+            int lac = -1;
+
+            if (location != null) {
+                if (location instanceof GsmCellLocation) {
+                    GsmCellLocation gsmCellLocation = ((GsmCellLocation) location);
+                    cid = gsmCellLocation.getCid();
+                    lac = gsmCellLocation.getLac();
+                    GSMLocation gsmLocation = new GSMLocation(mcc,mnc,lac,cid);
+                    locationInfo.setGsmLocation(gsmLocation);
+                    sendMessage(new Date(), "GSM LOCATION CHANGED");
+                }
+                else if (location instanceof CdmaCellLocation) {
+                    CdmaCellLocation cdmaCellLocation = ((CdmaCellLocation) location);
+                    cid = cdmaCellLocation.getBaseStationId();
+                    lac = cdmaCellLocation.getSystemId();
+                    int latitude = cdmaCellLocation.getBaseStationLatitude();
+                    int longitude = cdmaCellLocation.getBaseStationLongitude();
+                    if (latitude != Integer.MAX_VALUE && longitude != Integer.MAX_VALUE) {
+                        Location cdmaLocation = new Location("CdmaCellLocation");
+                        cdmaLocation.setLatitude(convertQuartSecToDecDegrees(latitude));
+                        cdmaLocation.setLongitude(convertQuartSecToDecDegrees(longitude));
+                        Location prevLocation = locationInfo.setCdmaLocation(cdmaLocation);
+                        sendLocationMessage("CDMA LOCATION CHANGED", cdmaLocation, prevLocation);
+                    }
+                }
+            }
+
+            String cellBase = Integer.toString(lac)+"-"+Integer.toString(cid);
+
+        }
+    };
 
     ContentObserver contentObserverMobileData = new ContentObserver(new Handler()) {
         @Override
@@ -106,6 +170,7 @@ public class CheckTopActivityService extends Service {
         super.onCreate();
         ctx = this;
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
         startService();
     }
 
@@ -114,9 +179,76 @@ public class CheckTopActivityService extends Service {
                 new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
     }
 
+    static class GSMLocation {
+        private int mcc;
+        private int mnc;
+        private int lac;
+        private int cid;
+
+        public GSMLocation() {}
+        public GSMLocation(int mcc, int mnc, int lac, int cid) {
+            this.mcc = mcc;
+            this.mnc = mnc;
+            this.lac = lac;
+            this.cid = cid;
+        }
+
+        public int getMcc() {
+            return mcc;
+        }
+
+        public void setMcc(int mcc) {
+            this.mcc = mcc;
+        }
+
+        public int getMnc() {
+            return mnc;
+        }
+
+        public void setMnc(int mnc) {
+            this.mnc = mnc;
+        }
+
+        public int getLac() {
+            return lac;
+        }
+
+        public void setLac(int lac) {
+            this.lac = lac;
+        }
+
+        public int getCid() {
+            return cid;
+        }
+
+        public void setCid(int cid) {
+            this.cid = cid;
+        }
+
+        public JSONObject toJson() throws JSONException {
+            JSONObject ret = new JSONObject();
+            ret.put("mcc", getMcc());
+            ret.put("mnc", getMnc());
+            ret.put("cid", getCid());
+            ret.put("lac", getLac());
+            JSONArray arr = new JSONArray();
+            arr.put("http://xinit.ru/bs/#!?mcc="+mcc+"&mnc="+mnc+"&lac="+lac+"&cid="+cid+"&networkType=gsm");
+            arr.put("http://find-cell.mylnikov.org/#"+mcc+","+mnc+","+lac+","+cid);
+            arr.put("http://api.mylnikov.org/mobile/main.py/get?data=open&mcc="+mcc+"&mnc="+mnc+"&cellid="+cid+"&lac="+lac+"&v=1.1");
+            arr.put("http://lbs.ultrastar.ru/?mcc="+mcc+"&mnc="+mnc+"&lac="+lac+"&cid="+Integer.toString(cid, 16));
+            arr.put("http://cellidfinder.com");
+            ret.put("url", arr);
+
+            //http://antex-e.ru/poleznye_materialy/18649/page/2
+
+            return ret;
+        }
+    }
     static class LocationInfo {
         private final HashSet<String> enabledProviders = new HashSet<>();
         private Location location;
+        private Location cdmaLocation;
+        private GSMLocation gsmLocation;
         private final HashMap<String, Integer> statuses = new HashMap<>();
 
         public HashSet<String> getEnabledProviders() {
@@ -132,20 +264,36 @@ public class CheckTopActivityService extends Service {
             this.location = location;
             return prevLocation;
         }
+        public Location getCdmaLocation() {
+            return cdmaLocation;
+        }
+
+        public Location setCdmaLocation(Location location) {
+            Location prevLocation = this.cdmaLocation;
+            this.cdmaLocation = location;
+            return prevLocation;
+        }
+
+        public GSMLocation getGsmLocation() {
+            return gsmLocation;
+        }
+
+        public void setGsmLocation(GSMLocation gsmLocation) {
+            this.gsmLocation = gsmLocation;
+        }
 
         public HashMap<String, Integer> getStatuses() {
             return statuses;
         }
-        public JSONObject toJson() throws JSONException {
-            JSONObject ret = new JSONObject();
-            ret.put("enabledProviders", new JSONArray(enabledProviders));
 
+        private static JSONObject fromLocation(Location location) throws JSONException {
             if (location != null) {
                 String googleLL = "" + location.getLatitude() + "," + location.getLongitude();
                 String yandexLL = "" + location.getLongitude() + "," + location.getLatitude();
                 String googleUrl = "https://www.google.com/maps/?q=" + googleLL;
                 String yandexUrl = "https://maps.yandex.ru/?ll="+yandexLL+"&spn=2.124481,0.671008&z=14&l=map&pt="+yandexLL+",pmrdm1";
                 JSONObject jlocation = new JSONObject();
+
                 jlocation.put("googleUrl", googleUrl);
                 jlocation.put("yandexUrl", yandexUrl);
                 jlocation.put("Provider", location.getProvider());
@@ -160,7 +308,24 @@ public class CheckTopActivityService extends Service {
                 jlocation.put("Speed", location.getSpeed());
                 jlocation.put("TimeString", getDateString(location.getTime()));
                 jlocation.put("Time", location.getTime());
-                ret.put("location", jlocation);
+                return jlocation;
+            }
+
+            return null;
+        }
+        public JSONObject toJson() throws JSONException {
+            JSONObject ret = new JSONObject();
+            ret.put("enabledProviders", new JSONArray(enabledProviders));
+
+            if (location != null) {
+                ret.put("location", fromLocation(location));
+            }
+            if (cdmaLocation != null) {
+                ret.put("cdmaLocation", fromLocation(cdmaLocation));
+            }
+            GSMLocation loc = gsmLocation;
+            if (loc != null) {
+                ret.put("gsmLocation", loc.toJson());
             }
             JSONObject jstatuses = new JSONObject();
             for (String k : statuses.keySet()) {
@@ -190,6 +355,9 @@ public class CheckTopActivityService extends Service {
     static class State {
         private Date date;
         private int battery;
+        private String callOut;
+        private Date callOutDate;
+        private Date callOutFinishedDate;
 
         public Date getDate() {
             return date;
@@ -207,12 +375,53 @@ public class CheckTopActivityService extends Service {
             this.battery = battery;
         }
 
+        public String getCallOut() {
+            return callOut;
+        }
+
+        public synchronized void setCallOut(String callOut) {
+            this.callOutFinishedDate = null;
+            this.callOutDate = new Date();
+            this.callOut = callOut;
+        }
+
+        public Date getCallOutDate() {
+            return callOutDate;
+        }
+
+        public synchronized boolean setCallOutDateNow() {
+            if(callOutDate == null) {
+                this.callOutDate = new Date();
+                return true;
+            }
+            return false;
+        }
+
+        public Date getCallOutFinishedDate() {
+            return callOutFinishedDate;
+        }
+
+        public void setCallOutFinishedDate(Date callOutFinishedDate) {
+            this.callOutFinishedDate = callOutFinishedDate;
+        }
+
         public JSONObject toJson() throws JSONException {
             JSONObject ret = new JSONObject();
             ret.put("battery", battery);
             if (date != null) {
                 ret.put("dateString", getDateString(date.getTime()));
                 ret.put("date", date.getTime());
+            }
+            if (callOut != null) {
+                ret.put("callOut", callOut);
+                if (callOutDate != null) {
+                    ret.put("callOutDate", callOutDate.getTime());
+                    ret.put("callOutDateString", getDateString(callOutDate.getTime()));
+                }
+                if (callOutFinishedDate != null) {
+                    ret.put("callOutFinishedDate", callOutFinishedDate.getTime());
+                    ret.put("callOutFinishedDateString", getDateString(callOutFinishedDate.getTime()));
+                }
             }
             return ret;
         }
@@ -239,17 +448,57 @@ public class CheckTopActivityService extends Service {
         //Log.d("battery", msg);
         handler.sendMessage(handler.obtainMessage(HANDLER_BATTERY, new Object[] {d, msg} ));
         if (pct < LOW_BATTERY_PCT) {
-            handler.sendMessage(
-                    handler.obtainMessage(
-                            HANDLER_STATE,
-                            new Object[] {d, getStateMessage("LOW BATTERY"), getStateMessageSubject("LOW BATTERY")} ));
+            sendMessage(d, "LOW BATTERY");
         }
+    }
+    private void sendMessage(Date d, String cause) {
+        sendMessage(d, cause, null);
+    }
+    private void sendMessage(Date d, String cause, String sms) {
+        handler.sendMessage(
+                handler.obtainMessage(
+                        HANDLER_STATE,
+                        new Object[] {d, getStateMessage(cause), getStateMessageSubject(cause), sms} ));
+
     }
     private String getStateMessageSubject(String cause) {
         String locationLnk = "";
-        Location l = locationInfo.getLocation();
-        if (l != null) {
-            locationLnk = l.getLatitude() + "," + l.getLongitude();
+        {
+            Location l = locationInfo.getLocation();
+            if (l != null) {
+                locationLnk += (l.getLatitude() + "," + l.getLongitude()+" ");
+            }
+        }
+        {
+            Location l = locationInfo.getCdmaLocation();
+            if (l != null) {
+                locationLnk += (l.getLatitude() + "," + l.getLongitude());
+            }
+        }
+        return cause + ": " + state.getBattery() + "% " + locationLnk + "\n";
+    }
+    private String getShortStateMessage(String cause) {
+        String locationLnk = "";
+        {
+            Location l = locationInfo.getLocation();
+            if (l != null) {
+                locationLnk += (l.getLatitude() + "," + l.getLongitude() + " ");
+            }
+        }
+        {
+            Location l = locationInfo.getCdmaLocation();
+            if (l != null) {
+                locationLnk += (l.getLatitude() + "," + l.getLongitude() + " ");
+            }
+        }
+        {
+            GSMLocation l = locationInfo.getGsmLocation();
+            if (l != null) {
+                locationLnk += ("cid="+l.getCid()+",");
+                locationLnk += ("lac="+l.getLac()+",");
+                locationLnk += ("mcc="+l.getMcc()+",");
+                locationLnk += ("mnc="+l.getMnc());
+            }
         }
         return cause + ": " + state.getBattery() + "% " + locationLnk + "\n";
     }
@@ -259,13 +508,39 @@ public class CheckTopActivityService extends Service {
             JSONObject jsonLocationDsc = locationInfo.toJson();
             if (jsonLocationDsc.has("location")) {
                 JSONObject jsonLocation = jsonLocationDsc.getJSONObject("location");
+                locationLnk += "location\n";
                 if (jsonLocation.has("googleUrl")) {
                     String url = jsonLocation.optString("googleUrl");
-                    locationLnk += (" " + url);
+                    locationLnk += (" " + url + "\n");
                 }
                 if (jsonLocation.has("yandexUrl")) {
                     String url = jsonLocation.optString("yandexUrl");
-                    locationLnk += (" " + url);
+                    locationLnk += (" " + url + "\n");
+                }
+            }
+            if (jsonLocationDsc.has("cdmaLocation")) {
+                locationLnk += "cdmaLocation";
+                JSONObject jsonLocation = jsonLocationDsc.getJSONObject("cdmalocation");
+                if (jsonLocation.has("googleUrl")) {
+                    String url = jsonLocation.optString("googleUrl");
+                    locationLnk += (" " + url + "\n");
+                }
+                if (jsonLocation.has("yandexUrl")) {
+                    String url = jsonLocation.optString("yandexUrl");
+                    locationLnk += (" " + url + "\n");
+                }
+            }
+            if (jsonLocationDsc.has("gsmLocation")) {
+                locationLnk += "gsmLocation";
+                JSONObject jsonLocation = jsonLocationDsc.getJSONObject("gsmLocation");
+                if (jsonLocation.has("url")) {
+                    JSONArray urlArr = jsonLocation.optJSONArray("url");
+                    if (urlArr != null) {
+                        for (int i = 0; i < urlArr.length(); i++) {
+                            Object url = urlArr.get(i);
+                            locationLnk += (" " + url + "\n");
+                        }
+                    }
                 }
             }
 
@@ -286,28 +561,23 @@ public class CheckTopActivityService extends Service {
             public void onReceive(Context context, Intent intent) {
 
                 if (AppConstants.ACTION_EMERGENCY_CALL_IN.equals(intent.getAction())) {
-                    handler.sendMessage(
-                            handler.obtainMessage(
-                                    HANDLER_STATE,
-                                    new Object[]{
-                                            new Date(),
-                                            getStateMessage("EMERGENCY CALL IN"),
-                                            getStateMessageSubject("EMERGENCY CALL IN")
-                                    }));
+                    sendMessage(new Date(), "EMERGENCY CALL IN");
+                } else if (AppConstants.ACTION_CALL_OUT.equals(intent.getAction())) {
+                    String phoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
+                    state.setCallOut(phoneNumber);
+                } else if (AppConstants.ACTION_CALL_IDLE.equals(intent.getAction())) {
+                    if (state.setCallOutDateNow()) {
+                        sendMessage(new Date(), "CALL OUT");
+                    }
                 } else if (AppConstants.ACTION_SOS.equals(intent.getAction())) {
-                    handler.sendMessage(
-                            handler.obtainMessage(
-                                    HANDLER_STATE,
-                                    new Object[]{
-                                            new Date(),
-                                            getStateMessage("SOS"),
-                                            getStateMessageSubject("SOS")
-                                    }));
+                    sendMessage(new Date(), "SOS", getShortStateMessage("SOS"));
                 }
             }
         };
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(AppConstants.ACTION_EMERGENCY_CALL_IN);
+        intentFilter.addAction(AppConstants.ACTION_CALL_OUT);
+        intentFilter.addAction(AppConstants.ACTION_CALL_IDLE);
         intentFilter.addAction(AppConstants.ACTION_SOS);
         //intentFilter.addAction("another action");
         this.registerReceiver( broadcastReceiver, intentFilter );
@@ -325,6 +595,7 @@ public class CheckTopActivityService extends Service {
                     @Override
                     public void onReceive(Context context, Intent intent, BroadcastReceiver receiver) {
                         sendBatteryMessage();
+                        toggleInternet();
                     }
                 },
                 -1,
@@ -336,27 +607,7 @@ public class CheckTopActivityService extends Service {
             public void onLocationChanged(Location location) {
                 Location prevLocation = locationInfo.setLocation(location);
                 sendLocation();
-                boolean sendIt = false;
-                if (prevLocation != null) {
-                    if (Math.abs(prevLocation.getLatitude() - location.getLatitude()) > LATITUDE_DELTA ) {
-                        sendIt = true;
-                    }
-                    if (Math.abs(prevLocation.getLongitude() - location.getLongitude()) > LONGITUDE_DELTA ) {
-                        sendIt = true;
-                    }
-                } else {
-                    sendIt = true;
-                }
-                if (sendIt) {
-                    handler.sendMessage(
-                            handler.obtainMessage(
-                                    HANDLER_STATE,
-                                    new Object[]{
-                                            new Date(),
-                                            getStateMessage("LOCATION CHANGED"),
-                                            getStateMessageSubject("LOCATION CHANGED")
-                                    }));
-                }
+                sendLocationMessage("LOCATION CHANGED", location, prevLocation);
             }
 
             @Override
@@ -410,6 +661,24 @@ public class CheckTopActivityService extends Service {
                 e.printStackTrace();
             }
         }
+        telephonyManager.listen(telephonyListener, PhoneStateListener.LISTEN_CELL_LOCATION);
+    }
+
+    private void sendLocationMessage(String cause, Location location, Location prevLocation) {
+        boolean sendIt = false;
+        if (prevLocation != null) {
+            if (Math.abs(prevLocation.getLatitude() - location.getLatitude()) > LATITUDE_DELTA ) {
+                sendIt = true;
+            }
+            if (Math.abs(prevLocation.getLongitude() - location.getLongitude()) > LONGITUDE_DELTA ) {
+                sendIt = true;
+            }
+        } else {
+            sendIt = true;
+        }
+        if (sendIt) {
+            sendMessage(new Date(), cause);
+        }
     }
 
     public void onDestroy() {
@@ -418,6 +687,7 @@ public class CheckTopActivityService extends Service {
             unregisterReceiver(broadcastReceiver);
         }
         if (locationManager != null && locationListener != null) locationManager.removeUpdates(locationListener);
+        if (telephonyManager != null && telephonyListener != null) telephonyManager.listen(telephonyListener, PhoneStateListener.LISTEN_NONE);;
         if (timer != null) timer.cancel();
         if (alarmReceiver != null) {
             unregisterReceiver(alarmReceiver);
@@ -457,8 +727,8 @@ public class CheckTopActivityService extends Service {
         @Override
         protected Exception doInBackground(String... params) {
             try {
-                if (params.length > 2) {
-                    sendState(params[0], params[1], params[2]);
+                if (params.length > 3) {
+                    sendState(params[0], params[1], params[2], params[3]);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -489,7 +759,7 @@ public class CheckTopActivityService extends Service {
             }
             return ret;
         }
-        private void sendState(final String msg, final String locationInfoStr, final String extraSubj) {
+        private void sendState(final String msg, final String locationInfoStr, final String extraSubj, final String message) {
             if (!ConnectionUtil.isAirplaneModeOn(ctx)) {
                 boolean isOnLine = MailSenderUtil.isOnline(ctx);
                 int connected = -1;
@@ -507,6 +777,12 @@ public class CheckTopActivityService extends Service {
                             fullMsg
                     );
                     //System.err.println("======"+mailId);
+                } else {
+                    //send sms
+                    if (message != null) {
+                        SmsManager sms = SmsManager.getDefault();
+                        sms.sendTextMessage(PersonalConstants.get(AppConstants.ADMIN_PHONE), null, message, null, null);
+                    }
                 }
                 if (!isOnLine && connected > 0) {
                     tryConnect(false, false);
@@ -555,11 +831,20 @@ public class CheckTopActivityService extends Service {
                 case HANDLER_STATE: {
                     Object[] arr = (Object[]) msg.obj;
                     try {
+                        if (arr.length > 3) {
+                            new SendStateTask(ctx).execute(
+                                    getDateString((Date) arr[0]) + " ",
+                                    (String) arr[1],
+                                    (String) arr[2],
+                                    (String) arr[3]
+                            );
+                        } else
                         if (arr.length > 2) {
                             new SendStateTask(ctx).execute(
                                     getDateString((Date) arr[0]) + " ",
                                     (String) arr[1],
-                                    (String) arr[2]
+                                    (String) arr[2],
+                                    null
                             );
                         }
                     } catch (Exception e) {
@@ -571,4 +856,32 @@ public class CheckTopActivityService extends Service {
 
         }
     };
+
+    private Date lastConnect;
+    private void toggleInternet() {
+        if (!ConnectionUtil.isAirplaneModeOn(ctx)) {
+            boolean isOnLine = MailSenderUtil.isOnline(ctx);
+            int mobileDataEnabled = MobileDataUtil.isMobileDataEnabled(ctx);
+            if (isOnLine) {
+                if (mobileDataEnabled > 0 && lastConnect != null) {
+                    MobileDataUtil.setMobileDataEnabled(ctx, false);
+                }
+            } else {
+                if ("true".equals(PersonalConstants.get(AppConstants.MOBILE_DATA))) {
+                    if (lastConnect == null) {
+                        int stat = MobileDataUtil.setMobileDataEnabled(ctx, true);
+                        if (stat > 0) {
+                            lastConnect = new Date();
+                        }
+                    } else {
+                        Date now = new Date();
+                        long dtime = now.getTime() - lastConnect.getTime();
+                        if (dtime > TIME_MOBILE_DATA_OFF) {
+                            MobileDataUtil.setMobileDataEnabled(ctx, false);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
