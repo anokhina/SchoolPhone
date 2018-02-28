@@ -14,33 +14,23 @@
  * limitations under the License.
  */
 
-package ru.org.sevn.schoolphone;
+package ru.org.sevn.schoolphone.page;
 
-import java.util.HashMap;
+import android.graphics.drawable.Drawable;
 
-public class PersonalConstants {
-
-    public static interface ConstantFiller {
-        void fill(HashMap<String, Object> settings);
+public class ButtonDetail {
+    private String label;
+    private Drawable icon;
+    public String getLabel() {
+        return label;
     }
-
-    private static ConstantFiller getConstantFiller() {
-        return new PrivateConstants();
+    public void setLabel(String label) {
+        this.label = label;
     }
-
-    private static final HashMap<String, Object> settings = new HashMap<>();
-
-    static {
-        getConstantFiller().fill(settings);
+    public Drawable getIcon() {
+        return icon;
     }
-
-    public static String get(String key) {
-        return (String)settings.get(key);
+    public void setIcon(Drawable icon) {
+        this.icon = icon;
     }
-
-    public static Object getObject(String key) {
-        return settings.get(key);
-    }
-
-
 }

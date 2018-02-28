@@ -25,6 +25,7 @@ import android.content.IntentFilter;
 import android.os.SystemClock;
 
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 public class AlarmUtil {
 
@@ -49,7 +50,7 @@ public class AlarmUtil {
         void onReceive(Context context, Intent intent, BroadcastReceiver receiver);
     }
 
-    public static BroadcastReceiver setAlarm(
+    public static SetAlarm setAlarm(
             final Context context,
             final int alarmType, //AlarmManager.ELAPSED_REALTIME_WAKEUP
             final String intentFilterStr,
@@ -73,16 +74,35 @@ public class AlarmUtil {
         AlarmManager manager = (AlarmManager)(context.getSystemService( Context.ALARM_SERVICE ));
 
         manager.set( alarmType, SystemClock.elapsedRealtime() + delayFromNowMs, pintent );
-        return receiver;
+        return new SetAlarm(pintent, receiver);
     }
 
-    public static BroadcastReceiver setAlarm(
+    public static class SetAlarm {
+        final PendingIntent pendingIntent;
+        final BroadcastReceiver broadcastReceiver;
+        public SetAlarm(PendingIntent pi, BroadcastReceiver br) {
+            pendingIntent = pi;
+            broadcastReceiver = br;
+        }
+
+        public PendingIntent getPendingIntent() {
+            return pendingIntent;
+        }
+
+        public BroadcastReceiver getBroadcastReceiver() {
+            return broadcastReceiver;
+        }
+    }
+    public static SetAlarm setAlarm(
             final Context context,
             final int alarmType, //AlarmManager.RTC_WAKEUP
             final String intentFilterStr,
             final AlarmReceiver alarmReceiver,
             final long delayFromNowMs, //calendar.getTimeInMillis()
             final long interval) { //AlarmManager.INTERVAL_DAY
+
+        final PendingIntent pintent = PendingIntent.getBroadcast( context, 0, new Intent(intentFilterStr), 0 );
+        final AlarmManager manager = (AlarmManager)(context.getSystemService( Context.ALARM_SERVICE ));
 
         BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override public void onReceive( Context context, Intent intent ) {
@@ -96,15 +116,82 @@ public class AlarmUtil {
 
         context.registerReceiver( receiver, new IntentFilter(intentFilterStr) );
 
-        PendingIntent pintent = PendingIntent.getBroadcast( context, 0, new Intent(intentFilterStr), 0 );
-        AlarmManager manager = (AlarmManager)(context.getSystemService( Context.ALARM_SERVICE ));
-
         manager.setInexactRepeating(
                 alarmType,
                 ((delayFromNowMs < 0) ? System.currentTimeMillis() : delayFromNowMs),
                 interval,
                 pintent);
-        return receiver;
+        return new SetAlarm(pintent, receiver);
+    }
+
+    public static SetAlarm setAlarmExact(
+            final Context context,
+            final int alarmType, //AlarmManager.RTC_WAKEUP
+            final String intentFilterStr,
+            final AlarmReceiver alarmReceiver,
+            final long delayFromNowMs, //calendar.getTimeInMillis()
+            final long interval) { //AlarmManager.INTERVAL_DAY
+
+        final PendingIntent pintent = PendingIntent.getBroadcast( context, 0, new Intent(intentFilterStr), 0 );
+        final AlarmManager manager = (AlarmManager)(context.getSystemService( Context.ALARM_SERVICE ));
+        final Calendar c = GregorianCalendar.getInstance();
+        c.setTimeInMillis(System.currentTimeMillis() + delayFromNowMs);
+
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override public void onReceive( Context context, Intent intent ) {
+                try {
+                    System.err.println("========1="+delayFromNowMs+":"+interval+":"+intentFilterStr+":"+c);
+                    alarmReceiver.onReceive(context, intent, this);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        context.registerReceiver( receiver, new IntentFilter(intentFilterStr) );
+
+        manager.setRepeating(
+                alarmType,
+                c.getTimeInMillis(),
+                interval,
+                pintent);
+        return new SetAlarm(pintent, receiver);
+    }
+
+    public static SetAlarm setAlarmExact(
+            final Context context,
+            final int alarmType, //AlarmManager.RTC_WAKEUP
+            final String intentFilterStr,
+            final AlarmReceiver alarmReceiver,
+            final long delayFromNowMs //calendar.getTimeInMillis()
+    ) {
+
+        final PendingIntent pintent = PendingIntent.getBroadcast( context, 0, new Intent(intentFilterStr), 0 );
+        final AlarmManager manager = (AlarmManager)(context.getSystemService( Context.ALARM_SERVICE ));
+        final Calendar c = GregorianCalendar.getInstance();
+        c.setTimeInMillis(System.currentTimeMillis() + delayFromNowMs);
+
+        final BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override public void onReceive( Context context, Intent intent ) {
+                try {
+                    System.err.println("========0="+delayFromNowMs+":"+c);
+                    alarmReceiver.onReceive(context, intent, this);
+                    manager.cancel(pintent);
+                    context.unregisterReceiver(this);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        context.registerReceiver( receiver, new IntentFilter(intentFilterStr) );
+
+        manager.setRepeating(
+                alarmType,
+                c.getTimeInMillis(),
+                delayFromNowMs,
+                pintent);
+        return new SetAlarm(pintent, receiver);
     }
 
     public static Calendar makeAlarmTime(int h, int m) {
@@ -113,5 +200,11 @@ public class AlarmUtil {
         calendar.set(Calendar.HOUR_OF_DAY, h);
         calendar.set(Calendar.MINUTE, m);
         return calendar;
+    }
+
+    public static void unset(Context ctx, AlarmUtil.SetAlarm sa) {
+        final AlarmManager manager = (AlarmManager)(ctx.getSystemService( Context.ALARM_SERVICE ));
+        ctx.unregisterReceiver(sa.getBroadcastReceiver());
+        manager.cancel(sa.getPendingIntent());
     }
 }

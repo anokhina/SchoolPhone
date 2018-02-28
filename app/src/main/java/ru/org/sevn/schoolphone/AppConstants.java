@@ -36,4 +36,6 @@ public class AppConstants {
 
     public static final String CLIENT_ID = "clientId";
     public static final String MOBILE_DATA = "mobileData";
+
+    public static final String EVENTS = "events";
 }

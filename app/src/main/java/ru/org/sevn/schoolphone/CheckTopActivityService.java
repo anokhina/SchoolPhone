@@ -73,7 +73,7 @@ import ru.org.sevn.schoolphone.connections.MobileDataUtil;
 //https://maps.yandex.ru/?ll=37.619988,55.753786&spn=2.124481,0.671008&z=14&l=map&pt=37.619988,55.753786,pmrdm1
 public class CheckTopActivityService extends Service {
     private Timer timer = new Timer();
-    private BroadcastReceiver alarmReceiver;
+    private AlarmUtil.SetAlarm alarmReceiver;
     private BroadcastReceiver broadcastReceiver;
     private Context ctx;
 
@@ -690,20 +690,24 @@ public class CheckTopActivityService extends Service {
         if (telephonyManager != null && telephonyListener != null) telephonyManager.listen(telephonyListener, PhoneStateListener.LISTEN_NONE);;
         if (timer != null) timer.cancel();
         if (alarmReceiver != null) {
-            unregisterReceiver(alarmReceiver);
+            AlarmUtil.unset(this, alarmReceiver);
         }
         super.onDestroy();
     }
 
     private void handleActivityTop() {
-        MainActivity mactivity = MainActivity.SELF;
+        LauncherFragment.LauncherAdapter mactivity = null;
+        if (LauncherFragment.SELF != null) { //TODO
+            mactivity = LauncherFragment.SELF.getLadapter();
+        }
         ActivityManager activityManager = (ActivityManager)ctx.getSystemService(Activity.ACTIVITY_SERVICE);
         AppDetail ad = null;
         if (activityManager != null && mactivity != null) {
             ComponentName cname = activityManager.getRunningTasks(1).get(0).topActivity;
             ad = new AppDetail(cname);
             if (mactivity.isProcess2kill(ad.getComponentName()) && !mactivity.isSU()) {
-                activityManager.moveTaskToFront(mactivity.getTaskId(), 0);
+                //LauncherFragment.showLauncher();
+                activityManager.moveTaskToFront(mactivity.getActivity().getTaskId(), 0);
             }
         }
 //            Toast.makeText(getApplicationContext(),
@@ -711,7 +715,7 @@ public class CheckTopActivityService extends Service {
 //                    Toast.LENGTH_SHORT).show();
     }
     private void handleBattery(Date d, String msg) {
-        String mainFileName = MainActivity.EXT_APP_LOG_DIR + "b-"+getDateDayString(d);
+        String mainFileName = LauncherFragment.LauncherAdapter.EXT_APP_LOG_DIR + "b-"+getDateDayString(d);
         try {
             IOUtil.saveExt(mainFileName, msg.getBytes(IOUtil.FILE_ENCODING), true);
         } catch (UnsupportedEncodingException e) {
@@ -793,7 +797,7 @@ public class CheckTopActivityService extends Service {
         }
     }
     private void handleLocation(Date d, String msg) {
-        String mainFileName = MainActivity.EXT_APP_LOG_DIR + "l-"+getDateDayString(d);
+        String mainFileName = LauncherFragment.LauncherAdapter.EXT_APP_LOG_DIR + "l-"+getDateDayString(d);
         try {
             IOUtil.saveExt(mainFileName, msg.getBytes(IOUtil.FILE_ENCODING), true);
         } catch (UnsupportedEncodingException e) {

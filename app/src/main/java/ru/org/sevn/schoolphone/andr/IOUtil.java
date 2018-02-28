@@ -53,6 +53,9 @@ public class IOUtil {
     }
     public static String readExt(String fileName) {
         File fl = getExternalFile(false, fileName);
+        return readExt(fl);
+    }
+    public static String readExt(File fl) {
         if (fl != null && fl.exists() && fl.canRead()) {
             SBTextFileLineProcessor processor = new SBTextFileLineProcessor();
             try {
@@ -123,7 +126,7 @@ public class IOUtil {
 
         @Override
         public boolean processLine(String s) {
-            sb.append(s);
+            sb.append(s).append("\n");
             return true;
         }
 

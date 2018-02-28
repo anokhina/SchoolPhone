@@ -14,15 +14,10 @@
  * limitations under the License.
  */
 
-package ru.org.sevn.schoolphone;
+package ru.org.sevn.schoolphone.page;
 
-import android.content.BroadcastReceiver;
+import java.util.List;
 
-public abstract class AppBroadcastReceiver extends BroadcastReceiver {
-    protected LauncherFragment.LauncherAdapter getMainActivity() {
-        if (LauncherFragment.SELF != null) {
-            return LauncherFragment.SELF.getLadapter();
-        }
-        return null;
-    }
+public interface ButtonListStore {
+    List getObjectList(boolean refresh);
 }

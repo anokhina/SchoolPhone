@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.telephony.SmsMessage;
 
 import ru.org.sevn.schoolphone.AppBroadcastReceiver;
+import ru.org.sevn.schoolphone.LauncherFragment;
 import ru.org.sevn.schoolphone.MainActivity;
 import ru.org.sevn.schoolphone.PersonalConstants;
 import ru.org.sevn.schoolphone.andr.AudioUtil;
@@ -43,7 +44,7 @@ public class SMSReceiver extends AppBroadcastReceiver {
         //Log.i(TAG, msgBody);
         //Log.i(TAG, msg.getOriginatingAddress());
         if (isAdminPhone((msg.getOriginatingAddress()))) {
-            MainActivity activity = getMainActivity(); //TODO it
+            LauncherFragment.LauncherAdapter activity = getMainActivity(); //TODO it
             int idxProf = msgBody.indexOf(PROFILE_MSG);
             if (idxProf >= 0) {
                 int nextDelim = msgBody.indexOf(",", idxProf);
@@ -66,7 +67,7 @@ public class SMSReceiver extends AppBroadcastReceiver {
                 try {
                     int volPct = Integer.parseInt(volume);
                     if (activity != null) {
-                        AudioUtil.setSMSCallVolume(activity, volPct);
+                        AudioUtil.setSMSCallVolume(activity.getActivity(), volPct);
                     }
                     noForw();
                 } catch (Exception e) {

@@ -41,6 +41,27 @@ public class MediaUtil {
             e.printStackTrace();
         }
     }
+    public static MediaPlayer playLoopAlarm(Context ctx) {
+        Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        if (soundUri != null) {
+            try {
+                final MediaPlayer mp = MediaPlayer.create(ctx, soundUri);
+                int streamType = AudioManager.STREAM_ALARM;
+                mp.setAudioStreamType(streamType);
+                mp.setLooping(true);
+                final AudioManager audioManager = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                if (audioManager.getStreamVolume(streamType) != 0) {
+                    mp.start();
+                    return mp;
+                } else {
+                    mp.release();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
     public static void beepMP(Context ctx) {
         Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         if (soundUri != null) {

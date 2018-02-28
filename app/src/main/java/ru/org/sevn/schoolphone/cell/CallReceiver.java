@@ -16,6 +16,8 @@
 
 package ru.org.sevn.schoolphone.cell;
 
+import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.telephony.TelephonyManager;
@@ -25,6 +27,7 @@ import java.lang.reflect.Method;
 
 import ru.org.sevn.schoolphone.AppBroadcastReceiver;
 import ru.org.sevn.schoolphone.AppConstants;
+import ru.org.sevn.schoolphone.LauncherFragment;
 import ru.org.sevn.schoolphone.MainActivity;
 import ru.org.sevn.schoolphone.PersonalConstants;
 import ru.org.sevn.schoolphone.andr.AudioUtil;
@@ -95,10 +98,10 @@ public class CallReceiver extends AppBroadcastReceiver {
             boolean isEmergency = isEmergencyCall(phoneNumber);
             int saveVolPct = -1;
             if (isAdminCallProfileAll(phoneNumber)) {
-                saveVolPct = getMainActivity().setProfileTo(MainActivity.PROFILE_ALL, true, 100);
+                saveVolPct = getMainActivity().setProfileTo(LauncherFragment.LauncherAdapter.PROFILE_ALL, true, 100);
             } else
             if (isAdminPhone(phoneNumber)) {
-                saveVolPct = getMainActivity().setProfileTo(MainActivity.PROFILE_SCHOOL, true, 100);
+                saveVolPct = getMainActivity().setProfileTo(LauncherFragment.LauncherAdapter.PROFILE_SCHOOL, true, 100);
             }
 
             if (isEmergency) {
@@ -118,6 +121,7 @@ public class CallReceiver extends AppBroadcastReceiver {
         } else
         if (TelephonyManager.EXTRA_STATE_IDLE.equals(state)) {
             getMainActivity().restoreSettings();
+            LauncherFragment.showLauncher();
         } else
         if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
             getMainActivity().restoreSettings();

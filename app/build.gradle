@@ -7,8 +7,8 @@ android {
         applicationId "ru.org.sevn.schoolphone"
         minSdkVersion 15
         targetSdkVersion 25
-        versionCode 9
-        versionName "1.9"
+        versionCode 10
+        versionName "1.10"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
     }
@@ -30,6 +30,7 @@ dependencies {
     })
     compile 'com.android.support:appcompat-v7:25.3.1'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    compile 'com.android.support:design:25.3.1'
     testCompile 'junit:junit:4.12'
     compile files('libs/mail.jar')
     compile files('libs/activation.jar')

@@ -35,6 +35,8 @@ import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
+import ru.org.sevn.schoolphone.FakeActivity;
+
 public class AndrUtil {
     public static Intent getAppIntent(final Context ctx, final String packageName) {
         if (packageName == null) return null;
@@ -84,6 +86,19 @@ public class AndrUtil {
         for(Object o : src) {
             dest.add(o);
         }
+    }
+
+    public static void resetPreferredLauncherAndOpenChooser(Context context) {
+        PackageManager packageManager = context.getPackageManager();
+        ComponentName componentName = new ComponentName(context, FakeActivity.class);
+        packageManager.setComponentEnabledSetting(componentName, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+
+        Intent selector = new Intent(Intent.ACTION_MAIN);
+        selector.addCategory(Intent.CATEGORY_HOME);
+        selector.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(selector);
+
+        packageManager.setComponentEnabledSetting(componentName, PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, PackageManager.DONT_KILL_APP);
     }
 
     public interface CanAdd<T> {
