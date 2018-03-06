@@ -16,6 +16,8 @@
 
 package ru.org.sevn.schoolphone;
 
+import android.content.Context;
+
 import java.util.HashMap;
 
 public class PersonalConstants {
@@ -42,5 +44,18 @@ public class PersonalConstants {
         return settings.get(key);
     }
 
+    public static void putObject(String key, Object o) {
+        settings.put(key, o);
+    }
 
+    public static LauncherFragment getAppInstance() {
+        return ((LauncherFragment)PersonalConstants.getObject(AppConstants.INSTANCE));
+    }
+    public static Context getAppContext() {
+        LauncherFragment launcherFragment = getAppInstance();
+        if (launcherFragment != null) {
+            return launcherFragment.getActivity();
+        }
+        return null;
+    }
 }

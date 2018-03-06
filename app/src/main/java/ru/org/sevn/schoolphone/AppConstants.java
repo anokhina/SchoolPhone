@@ -33,9 +33,13 @@ public class AppConstants {
     public static final String ACTION_CALL_OUT = "ru.org.sevn.schoolphone.CALL_OUT";
     public static final String ACTION_CALL_IDLE = "ru.org.sevn.schoolphone.CALL_IDLE";
     public static final String ACTION_SOS= "ru.org.sevn.schoolphone.SOS";
+    public static final String ACTION_SCHEDULE= "ru.org.sevn.schoolphone.ACTION_SCHEDULE";
+    public static final String ACTION_SCHEDULE_STATE= "ru.org.sevn.schoolphone.ACTION_SCHEDULE_STATE";
 
     public static final String CLIENT_ID = "clientId";
     public static final String MOBILE_DATA = "mobileData";
 
     public static final String EVENTS = "events";
+    public static final String ALARMS = "alarms";
+    public static final String INSTANCE = "instance";
 }

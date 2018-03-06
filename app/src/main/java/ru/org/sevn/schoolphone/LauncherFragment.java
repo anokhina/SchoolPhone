@@ -597,13 +597,13 @@ public class LauncherFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        SELF = this;
+        PersonalConstants.putObject(AppConstants.INSTANCE, this);
     }
     @Override
     public void onDestroy() {
-        SELF = null;
         getActivity().stopService(new Intent(getActivity(), CheckTopActivityService.class));
         super.onDestroy();
+        PersonalConstants.putObject(AppConstants.INSTANCE, null);
     }
 
     private int adjustVolume() {
@@ -646,8 +646,6 @@ public class LauncherFragment extends Fragment {
     private String getProfile() {
         return profile;
     }
-
-    static LauncherFragment SELF;
 
     private void renewKillApps() {
         killApps = getKillApps();
@@ -704,8 +702,9 @@ public class LauncherFragment extends Fragment {
     }
     public static void showLauncher() {
         LauncherFragment.LauncherAdapter mactivity = null;
-        if (LauncherFragment.SELF != null) {
-            mactivity = LauncherFragment.SELF.getLadapter();
+        LauncherFragment launcherFragment = PersonalConstants.getAppInstance();
+        if (launcherFragment != null) {
+            mactivity = launcherFragment.getLadapter();
             ActivityManager activityManager = (ActivityManager)mactivity.getActivity().getSystemService(Activity.ACTIVITY_SERVICE);
             activityManager.moveTaskToFront(mactivity.getActivity().getTaskId(), 0);
         }

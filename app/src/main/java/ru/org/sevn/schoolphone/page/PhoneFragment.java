@@ -43,6 +43,8 @@ import android.widget.TextView;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 import ru.org.sevn.schoolphone.AppConstants;
@@ -144,12 +146,20 @@ public class PhoneFragment extends Fragment {
                         File directory = new File(root, EXT_APP_PHONES_DIR);
 
                         File[] files = directory.listFiles();//TODO filter
-                        for (int i = 0; i < files.length; i++) {
-                            String fname = files[i].getName();
-                            if (fname.endsWith(".phone")) {
-                                String content = IOUtil.readExt(files[i]);
-                                if (content != null) {
-                                    buttonDetails.add(new PhoneDetail(getActivity(), content));
+                        if (files != null) {
+                            Arrays.sort(files, new Comparator<File>() {
+                                @Override
+                                public int compare(File o1, File o2) {
+                                    return o1.getAbsolutePath().compareTo(o2.getAbsolutePath());
+                                }
+                            });
+                            for (int i = 0; i < files.length; i++) {
+                                String fname = files[i].getName();
+                                if (fname.endsWith(".phone")) {
+                                    String content = IOUtil.readExt(files[i]);
+                                    if (content != null) {
+                                        buttonDetails.add(new PhoneDetail(getActivity(), content));
+                                    }
                                 }
                             }
                         }

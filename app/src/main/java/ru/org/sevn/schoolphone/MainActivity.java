@@ -16,17 +16,15 @@
 
 package ru.org.sevn.schoolphone;
 
-import android.app.AlarmManager;
-import android.content.BroadcastReceiver;
-import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Window;
+import android.view.WindowManager;
 
-import java.util.Collection;
-
-import ru.org.sevn.schoolphone.andr.AlarmUtil;
 import ru.org.sevn.schoolphone.page.ScheduleFragment;
 import ru.org.sevn.schoolphone.page.SectionsPagerAdapter;
 
@@ -46,7 +44,6 @@ public class MainActivity extends AppCompatActivity {
 
     private ViewPager viewPager;
 
-    private Collection<AlarmUtil.SetAlarm> alarms;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -69,16 +66,21 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        alarms = ScheduleFragment.setAlarms(this);
+        ScheduleFragment.initAlarms(this);
     }
+
+    @Override
+    public void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        Window wind = this.getWindow();
+        if (wind != null) {
+            wind.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+        }
+    }
+
     @Override
     protected void onDestroy() {
-        if (alarms != null) {
-            final AlarmManager manager = (AlarmManager)(this.getSystemService( Context.ALARM_SERVICE ));
-            for(AlarmUtil.SetAlarm br : alarms) {
-                AlarmUtil.unset(this, br);
-            }
-        }
+        ScheduleFragment.destroyAlarms(this);
         super.onDestroy();
     }
     @Override
@@ -98,5 +100,23 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         //super.onBackPressed();
+    }
+
+    private void openTab(int pos) {
+        if (viewPager != null) {
+            PagerAdapter pa = viewPager.getAdapter();
+            if (pa != null) {
+                int len = viewPager.getAdapter().getCount();
+                if (pos < len && pos >= 0) {
+                    viewPager.setCurrentItem(pos);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        openTab(1); //TODO position
     }
 }

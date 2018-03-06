@@ -562,6 +562,9 @@ public class CheckTopActivityService extends Service {
 
                 if (AppConstants.ACTION_EMERGENCY_CALL_IN.equals(intent.getAction())) {
                     sendMessage(new Date(), "EMERGENCY CALL IN");
+                } else if (AppConstants.ACTION_SCHEDULE.equals(intent.getAction())) {
+                    String state = intent.getStringExtra(AppConstants.ACTION_SCHEDULE_STATE);
+                    sendMessage(new Date(), "SCHEDULE " + state);
                 } else if (AppConstants.ACTION_CALL_OUT.equals(intent.getAction())) {
                     String phoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
                     state.setCallOut(phoneNumber);
@@ -576,6 +579,7 @@ public class CheckTopActivityService extends Service {
         };
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(AppConstants.ACTION_EMERGENCY_CALL_IN);
+        intentFilter.addAction(AppConstants.ACTION_SCHEDULE);
         intentFilter.addAction(AppConstants.ACTION_CALL_OUT);
         intentFilter.addAction(AppConstants.ACTION_CALL_IDLE);
         intentFilter.addAction(AppConstants.ACTION_SOS);
@@ -697,8 +701,9 @@ public class CheckTopActivityService extends Service {
 
     private void handleActivityTop() {
         LauncherFragment.LauncherAdapter mactivity = null;
-        if (LauncherFragment.SELF != null) { //TODO
-            mactivity = LauncherFragment.SELF.getLadapter();
+        LauncherFragment launcherFragment = PersonalConstants.getAppInstance();
+        if (launcherFragment != null) { //TODO
+            mactivity = launcherFragment.getLadapter();
         }
         ActivityManager activityManager = (ActivityManager)ctx.getSystemService(Activity.ACTIVITY_SERVICE);
         AppDetail ad = null;

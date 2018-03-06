@@ -20,8 +20,9 @@ import android.content.BroadcastReceiver;
 
 public abstract class AppBroadcastReceiver extends BroadcastReceiver {
     protected LauncherFragment.LauncherAdapter getMainActivity() {
-        if (LauncherFragment.SELF != null) {
-            return LauncherFragment.SELF.getLadapter();
+        LauncherFragment launcherFragment = PersonalConstants.getAppInstance();
+        if (launcherFragment != null) {
+            return launcherFragment.getLadapter();
         }
         return null;
     }

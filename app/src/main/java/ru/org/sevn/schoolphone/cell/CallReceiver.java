@@ -134,7 +134,7 @@ public class CallReceiver extends AppBroadcastReceiver {
         //System.err.println("+++++++++++"+state+":"+phoneNumber);
         //new AppNotifier().showCallNotify(id, context,"Call", ""+state+":"+msg);
 //        if (msg != null) {
-            toast(context, "+++++++++++"+state+":"+phoneNumber, Toast.LENGTH_LONG);
+//            toast(context, "+++++++++++"+state+":"+phoneNumber, Toast.LENGTH_LONG);
 //        }
     }
 

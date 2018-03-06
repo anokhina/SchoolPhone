@@ -16,20 +16,30 @@
 
 package ru.org.sevn.schoolphone.page;
 
+import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
+import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -39,27 +49,87 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 import ru.org.sevn.schoolphone.AppConstants;
+import ru.org.sevn.schoolphone.LauncherFragment;
 import ru.org.sevn.schoolphone.PersonalConstants;
 import ru.org.sevn.schoolphone.R;
 import ru.org.sevn.schoolphone.andr.AlarmUtil;
 import ru.org.sevn.schoolphone.andr.DialogUtil;
+import ru.org.sevn.schoolphone.andr.IOUtil;
 import ru.org.sevn.schoolphone.andr.MediaUtil;
 
 public class ScheduleFragment extends Fragment {
 
     private static ArrayList<Event> events = new ArrayList<>();
 
+    public static String EXT_APP_SCHEDULE_DIR = LauncherFragment.LauncherAdapter.EXT_APP_DIR + "schedule/";
+    private static void readList(final Collection<Event> events) {
+        File root = IOUtil.getExternalDir(false);
+        if (root != null) {
+            try {
+                File directory = new File(root, EXT_APP_SCHEDULE_DIR);
+
+                File[] files = directory.listFiles();//TODO filter
+                for (int i = 0; i < files.length; i++) {
+                    String fname = files[i].getName();
+                    if (fname.endsWith(".sch")) {
+                        IOUtil.importTextFile(files[i], new IOUtil.TextFileLineProcessor() {
+                            @Override
+                            public boolean processLine(String s) {
+                                events.add(new ScheduleFragment.Event(s));
+                                return true;
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     static {
+        reinit();
+    }
+
+    public static void reinit() {
+        ArrayList<ScheduleFragment.Event> eventstore = new ArrayList<>();
+        readList(eventstore);
+        PersonalConstants.putObject(AppConstants.EVENTS, eventstore);
+        events.clear();
         fillEvents(events, (Collection<Event>)PersonalConstants.getObject(AppConstants.EVENTS));
     }
 
-    public static Collection<AlarmUtil.SetAlarm> setAlarms(Context ctx) {
+    public static void initAlarms(Context ctx) {
+        if (ctx != null) {
+            Collection<AlarmUtil.SetAlarm> alarms = (Collection<AlarmUtil.SetAlarm>) PersonalConstants.getObject(AppConstants.ALARMS);
+            if (alarms != null) {
+                unsetAlarms(ctx, alarms);
+            }
+            alarms = ScheduleFragment.setAlarms(ctx);
+            PersonalConstants.putObject(AppConstants.ALARMS, alarms);
+        }
+    }
+    public static void destroyAlarms(Context ctx) {
+        Collection<AlarmUtil.SetAlarm> alarms = (Collection<AlarmUtil.SetAlarm>)PersonalConstants.getObject(AppConstants.ALARMS);
+        ScheduleFragment.unsetAlarms(ctx, alarms);
+    }
+    private static void unsetAlarms(Context ctx, Collection<AlarmUtil.SetAlarm> alarms) {
+        if (alarms != null) {
+            final AlarmManager manager = (AlarmManager)(ctx.getSystemService( Context.ALARM_SERVICE ));
+            for(AlarmUtil.SetAlarm br : alarms) {
+                AlarmUtil.unset(ctx, br);
+            }
+            alarms.clear();
+        }
+    }
+    private static Collection<AlarmUtil.SetAlarm> setAlarms(Context ctx) {
         ArrayList<AlarmUtil.SetAlarm> ret = new ArrayList<>();
-        ArrayList<Event> events = new ArrayList<>();
-        fillEvents(events, (Collection<Event>)PersonalConstants.getObject(AppConstants.EVENTS));
-        for (Event e : events) {
+        ArrayList<Event> eventList = new ArrayList<>();
+        fillEvents(eventList, (Collection<Event>)PersonalConstants.getObject(AppConstants.EVENTS));
+        for (Event e : eventList) {
             AlarmUtil.SetAlarm r = e.setAlarm(ctx);
             if (r != null) {
                 ret.add(r);
@@ -99,6 +169,7 @@ public class ScheduleFragment extends Fragment {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
             SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy/MM/dd");
 
+            String nLine = "<br>\n";
             View rootView = getView();
             Calendar now = GregorianCalendar.getInstance();
             Collections.sort(events, new EventComparator(now));
@@ -110,7 +181,9 @@ public class ScheduleFragment extends Fragment {
                     Calendar fromc = GregorianCalendar.getInstance();
                     fromc.setTime(evt.getFromDate(now));
                     if (from1 == null) {
+                        s += "<h3>";
                         s += sdf1.format(fromc.getTime());
+                        s += "</h3>";
                         s += "\n";
                     } else {
                         if (fromc.get(Calendar.YEAR) == from1.get(Calendar.YEAR)
@@ -119,17 +192,18 @@ public class ScheduleFragment extends Fragment {
                                 ) {
 
                         } else {
-                            s += "\n";
+                            s += "<h2>";
                             s += sdf1.format(fromc.getTime());
+                            s += "</h2>";
                             s += "\n";
                         }
                     }
                     from1 = fromc;
                     s += evt.getString(now, !true);
-                    s += "\n";
+                    s += nLine;
                 }
                 String txt = /*"" + sdf.format(now.getTime()) + "["+now.get(Calendar.DAY_OF_WEEK)+ "]\n\n" + */s;
-                textView.setText(txt);
+                textView.setText(Html.fromHtml(txt));
             }
             //Html.fromHtml(
         } catch (Exception e) {
@@ -152,10 +226,19 @@ public class ScheduleFragment extends Fragment {
     }
 
     public static class Event {
+        private boolean alarm = false;
         private String name = "";
         private long from = -1;
         private long to = -1;
         private boolean[] days = new boolean[7];
+
+        public boolean isAlarm() {
+            return alarm;
+        }
+
+        public void setAlarm(boolean alarm) {
+            this.alarm = alarm;
+        }
 
         public String getName() {
             return name;
@@ -272,10 +355,19 @@ public class ScheduleFragment extends Fragment {
             Date toDate = getToDate(now);
             Date fromDate = getFromDate(now);
             long lnow = now.getTimeInMillis();
+            String endWith = "";
             if (lnow >= (fromDate.getTime() - before) && lnow <= toDate.getTime()) {
-                ret += "*";
+                ret += "<b>";
+                endWith = "</b>";
+                //ret += "*";
+                ret += " ";
             } else {
                 ret += " ";
+            }
+            if (alarm) {
+                ret += "+";
+            } else {
+                ret += "-";
             }
 
             if (withDate) {
@@ -296,6 +388,7 @@ public class ScheduleFragment extends Fragment {
                 ret += printDays(parent.days);
             }
             ret += "]";
+            ret += endWith;
 
             return ret;
         }
@@ -310,11 +403,16 @@ public class ScheduleFragment extends Fragment {
         }
 
         public AlarmUtil.SetAlarm setAlarm(Context context) {
+            //TODO
+            //if (true) return null;
+            if (!alarm) return null;
+
             String id = UUID.randomUUID().toString();
             final Calendar now = GregorianCalendar.getInstance();
             long delayFromNowMs = -1;
             final long interval = AlarmManager.INTERVAL_DAY * 7;
-            now.add(Calendar.MINUTE, 5);
+            int minutesBefore = 5;
+            now.add(Calendar.MINUTE, minutesBefore);
 
             final Date from = getFromDate(now);
             boolean isRepeat = false;
@@ -325,21 +423,61 @@ public class ScheduleFragment extends Fragment {
                 }
             }
 
-            delayFromNowMs = from.getTime() - 5*60*1000 - GregorianCalendar.getInstance().getTimeInMillis();
+            delayFromNowMs = from.getTime() - minutesBefore*60*1000 - GregorianCalendar.getInstance().getTimeInMillis();
 
             AlarmUtil.AlarmReceiver receiver = new AlarmUtil.AlarmReceiver() {
                 @Override
-                public void onReceive(Context context, Intent intent, BroadcastReceiver receiver) {
-                    System.err.println("=======3="+Event.this.getString(now, true));
-                    final MediaPlayer mp = MediaUtil.playLoopAlarm(context);
+                public void onReceive(final Context context, final Intent intent, final BroadcastReceiver receiver) {
+                    final int alarmValue = MediaUtil.getVolumeAlarm(context);
+
+                    final boolean[] beepIt = new boolean[] {true};
+                    MediaUtil.beep(new Callable<Boolean>() {
+                        private int cnt = 0;
+                        @Override
+                        public Boolean call() throws Exception {
+                            cnt++;
+                            if (cnt >= 30) {
+                                Intent i = new Intent(AppConstants.ACTION_SCHEDULE);
+                                i.putExtra(AppConstants.ACTION_SCHEDULE_STATE, "" + 0 + " " + name);
+                                context.sendBroadcast(i);
+                                return false;
+                            }
+                            return beepIt[0];
+                        }
+                    });
+                    System.err.println("=======3="+Event.this.getString(now, true)+":"+alarmValue);
+                    //final MediaPlayer mp = MediaUtil.playLoopAlarm(context, 100);
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+
+                    try {
+                        LauncherFragment.LauncherAdapter mactivity = null;
+                        LauncherFragment launcherFragment = PersonalConstants.getAppInstance();
+                        if (launcherFragment != null) { //TODO
+                            mactivity = launcherFragment.getLadapter();
+                            if (mactivity != null) {
+                                ActivityManager activityManager = (ActivityManager) context.getSystemService(Activity.ACTIVITY_SERVICE);
+                                activityManager.moveTaskToFront(mactivity.getActivity().getTaskId(), 0);
+                                Window wind = mactivity.getActivity().getWindow();
+                                //wind.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+                                wind.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+                                //wind.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
 
                     DialogUtil.alert(context, "ALARM", "" + name + " " + sdf.format(from), new Runnable(){
                         public void run() {
-                            if (mp != null) {
-                                mp.stop();
-                                mp.release();
-                            }
+                            MediaUtil.setVolumeAlarm(context, alarmValue);
+                            beepIt[0] = false;
+                            Intent i = new Intent(AppConstants.ACTION_SCHEDULE);
+                            i.putExtra(AppConstants.ACTION_SCHEDULE_STATE, "" + 1 + " " + name);
+                            context.sendBroadcast(i);
+//                            if (mp != null) {
+//                                mp.stop();
+//                                mp.release();
+//                            }
                         }
                     });
 
@@ -375,9 +513,16 @@ public class ScheduleFragment extends Fragment {
             name = e.name;
             from = e.from;
             to = e.to;
+            alarm = e.alarm;
         }
         public Event(String s) {
             s = s.trim();
+            if (s.startsWith("+ ")) {
+                s = s.substring(2);
+                alarm = true;
+            } else if (s.startsWith("- ")) {
+                s = s.substring(2);
+            }
             if (s.startsWith("[")) {
                 int idx = s.indexOf("]");
                 if (idx < 0) {
@@ -446,4 +591,24 @@ public class ScheduleFragment extends Fragment {
             }
         }
     }
-}
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.main_schedule, menu);//action_renew
+    }
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        switch (id) {
+            case R.id.action_renew:
+                reinit();
+                refresh();
+                initAlarms(PersonalConstants.getAppContext());
+                return true;
+        }
+        return false;
+    }}
