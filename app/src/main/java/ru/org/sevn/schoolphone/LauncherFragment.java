@@ -89,7 +89,10 @@ public class LauncherFragment extends Fragment {
         }
     }
     private boolean isInKilled(AppDetail ad) {
-        return killAppsOther.contains(ad.getComponentName());
+        return isInKilled(ad.getComponentName());
+    }
+    private boolean isInKilled(String componentName) {
+        return killAppsOther.contains(componentName);
     }
     private boolean isInAllowed(AppDetail ad) {
         return allowedApps.contains(ad.getComponentName());
@@ -686,6 +689,9 @@ public class LauncherFragment extends Fragment {
         }
         public boolean isProcess2kill(String name) {
             return activity.isProcess2kill(name);
+        }
+        public boolean isProcessInKilled(String name) {
+            return activity.isInKilled(name);
         }
         public void saveSettings() {
             activity.saveSettings();

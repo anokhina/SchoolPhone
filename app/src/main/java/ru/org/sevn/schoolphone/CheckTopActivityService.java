@@ -92,6 +92,7 @@ public class CheckTopActivityService extends Service {
     public static final double LONGITUDE_DELTA = 0.001;
 
     public static final long TIME_MOBILE_DATA_OFF = 1000 * 60 * 14;
+    public static final long TIME_MOBILE_DATA_ON = 1000 * 60 * 5;
     private LocationManager locationManager;
     private TelephonyManager telephonyManager;
 
@@ -574,6 +575,8 @@ public class CheckTopActivityService extends Service {
                     }
                 } else if (AppConstants.ACTION_SOS.equals(intent.getAction())) {
                     sendMessage(new Date(), "SOS", getShortStateMessage("SOS"));
+                } else if ("android.intent.action.SCREEN_OFF".equals(intent.getAction())) {
+                    showLauncher();
                 }
             }
         };
@@ -583,6 +586,7 @@ public class CheckTopActivityService extends Service {
         intentFilter.addAction(AppConstants.ACTION_CALL_OUT);
         intentFilter.addAction(AppConstants.ACTION_CALL_IDLE);
         intentFilter.addAction(AppConstants.ACTION_SOS);
+        intentFilter.addAction("android.intent.action.SCREEN_OFF");
         //intentFilter.addAction("another action");
         this.registerReceiver( broadcastReceiver, intentFilter );
 
@@ -699,12 +703,25 @@ public class CheckTopActivityService extends Service {
         super.onDestroy();
     }
 
-    private void handleActivityTop() {
+    private LauncherFragment.LauncherAdapter getActivityAdapter() {
         LauncherFragment.LauncherAdapter mactivity = null;
         LauncherFragment launcherFragment = PersonalConstants.getAppInstance();
         if (launcherFragment != null) { //TODO
             mactivity = launcherFragment.getLadapter();
         }
+        return mactivity;
+    }
+
+    private void showLauncher() {
+        LauncherFragment.LauncherAdapter mactivity = getActivityAdapter();
+        ActivityManager activityManager = (ActivityManager)ctx.getSystemService(Activity.ACTIVITY_SERVICE);
+        if (mactivity != null) {
+            activityManager.moveTaskToFront(mactivity.getActivity().getTaskId(), 0);
+        }
+    }
+
+    private void handleActivityTop() {
+        LauncherFragment.LauncherAdapter mactivity = getActivityAdapter();
         ActivityManager activityManager = (ActivityManager)ctx.getSystemService(Activity.ACTIVITY_SERVICE);
         AppDetail ad = null;
         if (activityManager != null && mactivity != null) {
@@ -713,6 +730,10 @@ public class CheckTopActivityService extends Service {
             if (mactivity.isProcess2kill(ad.getComponentName()) && !mactivity.isSU()) {
                 //LauncherFragment.showLauncher();
                 activityManager.moveTaskToFront(mactivity.getActivity().getTaskId(), 0);
+            } else {
+                if (mactivity.isProcessInKilled(ad.getComponentName())) {
+                    forbidInternet();
+                }
             }
         }
 //            Toast.makeText(getApplicationContext(),
@@ -867,27 +888,38 @@ public class CheckTopActivityService extends Service {
     };
 
     private Date lastConnect;
+    private void forbidInternet() {
+        int mobileDataEnabled = MobileDataUtil.isMobileDataEnabled(ctx);
+        if (mobileDataEnabled > 0) {
+            MobileDataUtil.setMobileDataEnabled(ctx, false);
+        }
+        if (lastConnect != null) {
+            lastConnect = new Date();
+        }
+    }
     private void toggleInternet() {
-        if (!ConnectionUtil.isAirplaneModeOn(ctx)) {
+        if (!ConnectionUtil.isAirplaneModeOn(ctx) && "true".equals(PersonalConstants.get(AppConstants.MOBILE_DATA))) {
             boolean isOnLine = MailSenderUtil.isOnline(ctx);
             int mobileDataEnabled = MobileDataUtil.isMobileDataEnabled(ctx);
-            if (isOnLine) {
-                if (mobileDataEnabled > 0 && lastConnect != null) {
-                    MobileDataUtil.setMobileDataEnabled(ctx, false);
+
+            if (lastConnect == null) {
+                if (isOnLine || mobileDataEnabled > 0) {
+                } else {
+                    int stat = MobileDataUtil.setMobileDataEnabled(ctx, true);
+                    if (stat > 0) {
+                        lastConnect = new Date();
+                    }
                 }
             } else {
-                if ("true".equals(PersonalConstants.get(AppConstants.MOBILE_DATA))) {
-                    if (lastConnect == null) {
-                        int stat = MobileDataUtil.setMobileDataEnabled(ctx, true);
-                        if (stat > 0) {
-                            lastConnect = new Date();
-                        }
-                    } else {
-                        Date now = new Date();
-                        long dtime = now.getTime() - lastConnect.getTime();
-                        if (dtime > TIME_MOBILE_DATA_OFF) {
-                            MobileDataUtil.setMobileDataEnabled(ctx, false);
-                        }
+                Date now = new Date();
+                long dtime = now.getTime() - lastConnect.getTime();
+                if (mobileDataEnabled > 0) {
+                    if (dtime > TIME_MOBILE_DATA_ON) {
+                        MobileDataUtil.setMobileDataEnabled(ctx, false);
+                    }
+                } else {
+                    if (dtime > TIME_MOBILE_DATA_OFF) {
+                        lastConnect = null;
                     }
                 }
             }
