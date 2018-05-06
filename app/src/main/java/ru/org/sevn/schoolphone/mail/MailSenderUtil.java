@@ -54,7 +54,7 @@ public class MailSenderUtil {
         return false;
     }
 
-    public static String sendMail(final String username, final String password, String mailFromAddress, String mailToAddress, String subj, String msgText) {
+    public static String sendMail(final String username, final String password, String mailFromAddress, String mailToAddress, String subj, String msgText) throws Exception {
         try {
             Email email = new SimpleEmail();
             email.setHostName("smtp.gmail.com");
@@ -70,8 +70,9 @@ public class MailSenderUtil {
             return email.send();
         } catch (Exception e) {
             e.printStackTrace();
+            throw e;
         }
-        return null;
+        //return null;
     }
     public static Properties makeMailProperties() {
         Properties props = new Properties();

@@ -16,15 +16,25 @@
 
 package ru.org.sevn.schoolphone;
 
+import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.os.SystemClock;
+import android.provider.Settings;
 import android.support.v4.app.Fragment;
 import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 
+import ru.org.sevn.schoolphone.andr.AndrUtilGUI;
 import ru.org.sevn.schoolphone.page.ScheduleFragment;
 import ru.org.sevn.schoolphone.page.SectionsPagerAdapter;
 
@@ -44,10 +54,37 @@ public class MainActivity extends AppCompatActivity {
 
     private ViewPager viewPager;
 
+    private int defaultTurnOffTime;
+    private BroadcastReceiver onOffReceiver = new BroadcastReceiver(){
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            int dtnow = Settings.System.getInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT, 1000);
+            int dt = defaultTurnOffTime;
+            if (dt < 60000) {
+                dt = 60000 * 2;
+            }
+            if (dtnow < 60000) {
+                Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT, dt);
+            }
+            //AndrUtilGUI.toastLong(MainActivity.this, "TurnOffTime>"+Settings.System.getInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT, 60000));
+            openTab(0);
+        }
+    };
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main_tab_scroll);
+
+        Button bt = (Button) findViewById(R.id.btSwOff);
+
+        if (bt != null) {
+            bt.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    try2off();
+                }
+            });
+        }
 
         sectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
 
@@ -55,18 +92,23 @@ public class MainActivity extends AppCompatActivity {
         viewPager.setAdapter(sectionsPagerAdapter);
         viewPager.setCurrentItem(1); //TODO position
 
-        viewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
-            public void onPageScrollStateChanged(int state) {}
-            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {}
-
-            public void onPageSelected(int position) {
-                Fragment fragment = sectionsPagerAdapter.getItem(position);
-                if (fragment instanceof ScheduleFragment) {
-                    ((ScheduleFragment)fragment).refresh();
-                }
-            }
-        });
+//        viewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+//            public void onPageScrollStateChanged(int state) {}
+//            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {}
+//
+//            public void onPageSelected(int position) {
+//                Fragment fragment = sectionsPagerAdapter.getItem(position);
+//                if (fragment instanceof ScheduleFragment) {
+//                    ((ScheduleFragment)fragment).refresh();
+//                }
+//            }
+//        });
         ScheduleFragment.initAlarms(this);
+
+        IntentFilter screenStateFilter = new IntentFilter();
+        screenStateFilter.addAction(Intent.ACTION_SCREEN_ON);
+        screenStateFilter.addAction(Intent.ACTION_SCREEN_OFF);
+        registerReceiver(onOffReceiver, screenStateFilter);
     }
 
     @Override
@@ -81,33 +123,34 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         ScheduleFragment.destroyAlarms(this);
+        unregisterReceiver(onOffReceiver);
         super.onDestroy();
     }
     @Override
     protected void onResume() {
         super.onResume();
-        if (sectionsPagerAdapter != null) {
-            try {
-                Fragment fragment = sectionsPagerAdapter.getItem(0); //TODO position
-                if (fragment instanceof ScheduleFragment) {
-                    ((ScheduleFragment) fragment).refresh();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+//        if (sectionsPagerAdapter != null) {
+//            try {
+//                Fragment fragment = sectionsPagerAdapter.getItem(0); //TODO position
+//                if (fragment instanceof ScheduleFragment) {
+//                    ((ScheduleFragment) fragment).refresh();
+//                }
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        }
     }
     @Override
     public void onBackPressed() {
         //super.onBackPressed();
     }
 
-    private void openTab(int pos) {
+    public void openTab(int pos) {
         if (viewPager != null) {
             PagerAdapter pa = viewPager.getAdapter();
             if (pa != null) {
                 int len = viewPager.getAdapter().getCount();
-                if (pos < len && pos >= 0) {
+                if (pos != viewPager.getCurrentItem() && pos < len && pos >= 0) {
                     viewPager.setCurrentItem(pos);
                 }
             }
@@ -118,5 +161,12 @@ public class MainActivity extends AppCompatActivity {
     public void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         openTab(1); //TODO position
+    }
+
+    private void try2off() {
+        defaultTurnOffTime = Settings.System.getInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT, 60000);
+        Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT, 1000);
+
+        AndrUtilGUI.toastLong(this, "TurnOffTime>"+Settings.System.getInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT, 60000));
     }
 }

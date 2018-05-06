@@ -164,7 +164,7 @@ public class ScheduleFragment extends Fragment {
         textView.setMovementMethod(new ScrollingMovementMethod());
         return rootView;
     }
-    public void refresh() {
+    private void refresh() {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm");
             SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy/MM/dd");
@@ -203,7 +203,8 @@ public class ScheduleFragment extends Fragment {
                     s += nLine;
                 }
                 String txt = /*"" + sdf.format(now.getTime()) + "["+now.get(Calendar.DAY_OF_WEEK)+ "]\n\n" + */s;
-                textView.setText(Html.fromHtml(txt));
+                scheduleText = txt;
+                textView.setText(Html.fromHtml(scheduleText));
             }
             //Html.fromHtml(
         } catch (Exception e) {
@@ -211,6 +212,7 @@ public class ScheduleFragment extends Fragment {
             e.printStackTrace();
         }
     }
+    private String scheduleText;
     //[days] from to name
     //attime totime name
 
@@ -611,4 +613,17 @@ public class ScheduleFragment extends Fragment {
                 return true;
         }
         return false;
-    }}
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (scheduleText == null) {
+            refresh();
+        } else {
+            View rootView = getView();
+            TextView textView = (TextView) rootView.findViewById(R.id.section_label);
+            textView.setText(Html.fromHtml(scheduleText));
+        }
+    }
+}

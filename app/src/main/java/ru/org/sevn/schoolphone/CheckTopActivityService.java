@@ -21,6 +21,8 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothHeadset;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -40,12 +42,15 @@ import android.os.IBinder;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 
+import android.support.v4.content.ContextCompat;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
 import android.telephony.cdma.CdmaCellLocation;
 import android.telephony.gsm.GsmCellLocation;
+import android.util.Log;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -62,6 +67,7 @@ import java.util.TimerTask;
 import ru.org.sevn.schoolphone.andr.AlarmUtil;
 import ru.org.sevn.schoolphone.andr.BatteryUtil;
 import ru.org.sevn.schoolphone.andr.IOUtil;
+import ru.org.sevn.schoolphone.andr.NetUtil;
 import ru.org.sevn.schoolphone.connections.ConnectionUtil;
 import ru.org.sevn.schoolphone.mail.MailSenderUtil;
 import ru.org.sevn.schoolphone.connections.MobileDataUtil;
@@ -359,6 +365,7 @@ public class CheckTopActivityService extends Service {
         private String callOut;
         private Date callOutDate;
         private Date callOutFinishedDate;
+        private String profile;
 
         public Date getDate() {
             return date;
@@ -413,6 +420,9 @@ public class CheckTopActivityService extends Service {
                 ret.put("dateString", getDateString(date.getTime()));
                 ret.put("date", date.getTime());
             }
+            if (profile != null) {
+                ret.put("profile", profile);
+            }
             if (callOut != null) {
                 ret.put("callOut", callOut);
                 if (callOutDate != null) {
@@ -436,20 +446,34 @@ public class CheckTopActivityService extends Service {
             }
         }
 
+        public String getProfile() {
+            return profile;
+        }
+
+        public void setProfile(String profile) {
+            this.profile = profile;
+        }
     }
     private State state = new State();
-    private void sendBatteryMessage() {
-        Date d = new Date();
+    private Intent updateStatus() {
         Intent batteryStatus = getBatteryStatus();
-        int pct = BatteryUtil.getPercentLevel(batteryStatus);
+        Date d = new Date();
+
+        LauncherFragment.LauncherAdapter mactivity = getActivityAdapter();
         state.setDate(d);
-        state.setBattery(pct);
-        String msg = "" + getDateString(d) + " : " + BatteryUtil.isCharging(batteryStatus) + " " + pct + "% " + "\n\n";
+        state.setBattery(BatteryUtil.getPercentLevel(batteryStatus));
+        state.setProfile(mactivity.getProfile());
+        return batteryStatus;
+    }
+    private void sendBatteryMessage() {
+        Intent batteryStatus = updateStatus();
+        int pct = BatteryUtil.getPercentLevel(batteryStatus);
+        String msg = "" + getDateString(state.getDate()) + " : " + BatteryUtil.isCharging(batteryStatus) + " " + pct + "% " + "\n\n";
 
         //Log.d("battery", msg);
-        handler.sendMessage(handler.obtainMessage(HANDLER_BATTERY, new Object[] {d, msg} ));
+        handler.sendMessage(handler.obtainMessage(HANDLER_BATTERY, new Object[] {state.getDate(), msg} ));
         if (pct < LOW_BATTERY_PCT) {
-            sendMessage(d, "LOW BATTERY");
+            sendMessage(state.getDate(), "LOW BATTERY");
         }
     }
     private void sendMessage(Date d, String cause) {
@@ -562,18 +586,22 @@ public class CheckTopActivityService extends Service {
             public void onReceive(Context context, Intent intent) {
 
                 if (AppConstants.ACTION_EMERGENCY_CALL_IN.equals(intent.getAction())) {
+                    updateStatus();
                     sendMessage(new Date(), "EMERGENCY CALL IN");
                 } else if (AppConstants.ACTION_SCHEDULE.equals(intent.getAction())) {
+                    updateStatus();
                     String state = intent.getStringExtra(AppConstants.ACTION_SCHEDULE_STATE);
                     sendMessage(new Date(), "SCHEDULE " + state);
                 } else if (AppConstants.ACTION_CALL_OUT.equals(intent.getAction())) {
                     String phoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
                     state.setCallOut(phoneNumber);
                 } else if (AppConstants.ACTION_CALL_IDLE.equals(intent.getAction())) {
+                    updateStatus();
                     if (state.setCallOutDateNow()) {
                         sendMessage(new Date(), "CALL OUT");
                     }
                 } else if (AppConstants.ACTION_SOS.equals(intent.getAction())) {
+                    updateStatus();
                     sendMessage(new Date(), "SOS", getShortStateMessage("SOS"));
                 } else if ("android.intent.action.SCREEN_OFF".equals(intent.getAction())) {
                     showLauncher();
@@ -594,6 +622,7 @@ public class CheckTopActivityService extends Service {
             public void run() {
                 //handler.sendEmptyMessage(HANDLER);
                 handleActivityTop();
+                checkInternetAccess();
             }
         }, 0, TIMER_INTERVAL);
         alarmReceiver = AlarmUtil.setAlarm(this,
@@ -672,6 +701,14 @@ public class CheckTopActivityService extends Service {
         telephonyManager.listen(telephonyListener, PhoneStateListener.LISTEN_CELL_LOCATION);
     }
 
+    private void checkInternetAccess() {
+        if ("true".equals(PersonalConstants.get(AppConstants.MOBILE_DATA))) {
+
+        } else {
+            forbidInternet();
+        }
+    }
+
     private void sendLocationMessage(String cause, Location location, Location prevLocation) {
         boolean sendIt = false;
         if (prevLocation != null) {
@@ -720,6 +757,18 @@ public class CheckTopActivityService extends Service {
         }
     }
 
+    public static boolean isBluetoothHeadsetConnected() {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        return mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()
+                && mBluetoothAdapter.getProfileConnectionState(BluetoothHeadset.HEADSET) == BluetoothHeadset.STATE_CONNECTED;
+    }
+    private boolean isCallIntenet(String s) {
+        //Log.d("isCallIntenet>", s);
+        if ("com.android.phone/com.android.phone.InCallScreen".equals(s)) {
+            return true;
+        }
+        return false;
+    }
     private void handleActivityTop() {
         LauncherFragment.LauncherAdapter mactivity = getActivityAdapter();
         ActivityManager activityManager = (ActivityManager)ctx.getSystemService(Activity.ACTIVITY_SERVICE);
@@ -730,6 +779,18 @@ public class CheckTopActivityService extends Service {
             if (mactivity.isProcess2kill(ad.getComponentName()) && !mactivity.isSU()) {
                 //LauncherFragment.showLauncher();
                 activityManager.moveTaskToFront(mactivity.getActivity().getTaskId(), 0);
+            } else if (isBluetoothHeadsetConnected() && isCallIntenet(ad.getComponentName())) {
+                activityManager.moveTaskToFront(mactivity.getActivity().getTaskId(), 0);
+                final Activity act = mactivity.getActivity();
+                if (act instanceof MainActivity) {
+                    act.runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            ((MainActivity)act).openTab(0);
+                        }
+                    });
+                }
             } else {
                 if (mactivity.isProcessInKilled(ad.getComponentName())) {
                     forbidInternet();
@@ -797,15 +858,32 @@ public class CheckTopActivityService extends Service {
                     connected = tryConnect(true, true);
                 }
                 if (MailSenderUtil.isOnline(ctx)) {
+                    String ipAddr = NetUtil.getIPAddress(true);
+                    if (ipAddr == null) {
+                        ipAddr = NetUtil.getIPAddress(!true);
+                    }
+                    if (ipAddr == null) {
+                        ipAddr = "";
+                    }
+
                     String fullMsg = msg + locationInfoStr;
-                    String mailId = MailSenderUtil.sendMail(
-                            PersonalConstants.get(AppConstants.MAIL_FROM_USER),
-                            PersonalConstants.get(AppConstants.MAIL_FROM_PSWD),
-                            PersonalConstants.get(AppConstants.MAIL_FROM),
-                            PersonalConstants.get(AppConstants.MAIL_TO),
-                            "school_phone_state " + PersonalConstants.get(AppConstants.CLIENT_ID) + " " + extraSubj,
-                            fullMsg
-                    );
+                    try {
+                        String mailId = MailSenderUtil.sendMail(
+                                PersonalConstants.get(AppConstants.MAIL_FROM_USER),
+                                PersonalConstants.get(AppConstants.MAIL_FROM_PSWD),
+                                PersonalConstants.get(AppConstants.MAIL_FROM),
+                                PersonalConstants.get(AppConstants.MAIL_TO),
+                                "school_phone_state " + PersonalConstants.get(AppConstants.CLIENT_ID) + " " + ipAddr + " " + extraSubj,
+                                fullMsg
+                        );
+                    } catch (Exception e) {
+                        //TODO last error
+                        //send sms
+                        if (message != null) {
+                            SmsManager sms = SmsManager.getDefault();
+                            sms.sendTextMessage(PersonalConstants.get(AppConstants.ADMIN_PHONE), null, message, null, null);
+                        }
+                    }
                     //System.err.println("======"+mailId);
                 } else {
                     //send sms

@@ -239,8 +239,15 @@ public class PhoneFragment extends Fragment {
             }
 
         });
-        badapter.renew();
 
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (badapter.getCount() == 0) {
+            badapter.renew();
+        }
     }
 
     @Override
